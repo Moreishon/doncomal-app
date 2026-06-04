@@ -40,7 +40,7 @@ const sPill = (active,color,extra) => ({
 });
 const sCard  = (extra) => ({background:"white",borderRadius:"12px",border:"1.5px solid #EAE0D5",marginBottom:"8px",...(extra||{})});
 const ERR_MSG   = {fontSize:"12px",color:"#E53E3E",marginTop:"4px",display:"block"};
-const HDR_STYLE = {background:"#0A0A0A",padding:"16px 20px",display:"flex",alignItems:"center",gap:"12px",position:"sticky",top:0,zIndex:10};
+const HDR_STYLE = {background:"#0A0A0A",paddingTop:"calc(16px + env(safe-area-inset-top))",paddingRight:"20px",paddingBottom:"16px",paddingLeft:"20px",display:"flex",alignItems:"center",gap:"12px",position:"sticky",top:0,zIndex:10};
 const BACK_BTN  = {background:"none",border:"none",color:"#F5DFC0",cursor:"pointer",fontSize:"20px",fontFamily:"inherit"};
 const HDR_TITLE = {fontFamily:"'Playfair Display',serif",color:"#F5DFC0",fontSize:"18px",fontWeight:"700"};
 const SAVE_BTN  = {width:"100%",background:"#C4622D",color:"white",border:"none",borderRadius:"12px",padding:"16px",fontSize:"16px",fontWeight:"600",cursor:"pointer",fontFamily:"inherit"};
@@ -466,7 +466,7 @@ export default function App() {
   // PROFILE SELECT
   // ══════════════════════════════════════════
   if(!curId) return (
-    <div style={{fontFamily:"inherit",background:"#0A0A0A",minHeight:"100vh",maxWidth:"430px",margin:"0 auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"32px 20px 40px"}}>
+    <div style={{fontFamily:"inherit",background:"#0A0A0A",minHeight:"100vh",maxWidth:"430px",margin:"0 auto",display:"flex",flexDirection:"column",alignItems:"center",paddingTop:"calc(32px + env(safe-area-inset-top))",paddingRight:"20px",paddingBottom:"40px",paddingLeft:"20px"}}>
       <style>{FONT_CSS}</style>
       {pinTarget&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:100,padding:"20px"}}>
@@ -506,7 +506,7 @@ export default function App() {
   if(view==="catalogo") return (
     <div style={{fontFamily:"inherit",background:"#FAF5EE",minHeight:"100vh",maxWidth:"430px",margin:"0 auto",paddingBottom:"32px"}}>
       <style>{FONT_CSS}</style>
-      <div style={{background:"#0A0A0A",padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
+      <div style={{background:"#0A0A0A",paddingTop:"calc(16px + env(safe-area-inset-top))",paddingRight:"20px",paddingBottom:"16px",paddingLeft:"20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
         <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
           <button onClick={()=>{setView("list");setCatFormVis(false);setCatSearch("");}} style={BACK_BTN}>←</button>
           <span style={HDR_TITLE}>Catálogo</span>
@@ -791,7 +791,7 @@ export default function App() {
   return (
     <div style={{fontFamily:"inherit",background:"#FAF5EE",minHeight:"100vh",maxWidth:"430px",margin:"0 auto",paddingBottom:"110px"}}>
       <style>{FONT_CSS}</style>
-      <div style={{background:"#0A0A0A",position:"sticky",top:0,zIndex:10}}>
+      <div style={{background:"#0A0A0A",position:"sticky",top:0,zIndex:10,paddingTop:"env(safe-area-inset-top)"}}>
         <div style={{padding:"12px 16px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <img src={LOGO} style={{height:"44px",mixBlendMode:"screen"}} alt="Don Comal"/>
           <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
@@ -893,7 +893,7 @@ export default function App() {
         )}
       </div>
 
-      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"430px",padding:"10px 16px 20px",background:"linear-gradient(to top,#FAF5EE 65%,rgba(250,245,238,0))"}}>
+      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"430px",paddingTop:"10px",paddingRight:"16px",paddingBottom:"calc(20px + env(safe-area-inset-bottom))",paddingLeft:"16px",background:"linear-gradient(to top,#FAF5EE 65%,rgba(250,245,238,0))"}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
           <button onClick={()=>openSingle()} style={{background:"#C4622D",color:"white",border:"none",borderRadius:"12px",padding:"14px",fontSize:"14px",fontWeight:"600",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px",fontFamily:"inherit"}}>
             <span style={{fontSize:"18px",fontWeight:"300"}}>+</span> Individual
