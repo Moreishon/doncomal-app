@@ -60,10 +60,39 @@ function calcItem(f) {
 const blankF  = (als,cats) => ({fecha:today(),prov:"",al:als[0]||"Almacén 1",cat:cats[0]||"Frutas y Verduras",prod:"",useCustom:false,unit:"kg",qty:"",customUnit:"",equiv:"",stdUnit:"kg",price:"",iva:0.16,notas:""});
 const blankGF = (cats) => ({cat:cats[0]||"Frutas y Verduras",prod:"",useCustom:false,unit:"kg",qty:"",customUnit:"",equiv:"",stdUnit:"kg",price:"",iva:0.16,notas:""});
 
+// ─── Supabase sync ────────────────────────────────────────────
+// Pega aquí tus credenciales de supabase.com → Settings → API
+const SUPA_URL = "https://ldreshghjcaurfgnwjxa.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkcmVzaGdoamNhdXJmZ253anhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1OTY4NTIsImV4cCI6MjA5NjE3Mjg1Mn0.fKeRYxkZhiFeoFxw_sLy1H_S8hx5ffmGvApzkZ3Ssbo";
+// ──────────────────────────────────────────────────────────────
+
+const SUPA_HDR = {
+  "apikey": SUPA_KEY,
+  "Authorization": "Bearer "+SUPA_KEY,
+  "Content-Type": "application/json",
+  "Prefer": "resolution=merge-duplicates"
+};
+
 async function storageGet(key) {
-  try { const v=localStorage.getItem(key); return v?JSON.parse(v):null; } catch { return null; }
+  try {
+    const r = await fetch(
+      SUPA_URL+"/rest/v1/app_data?key=eq."+key+"&select=value",
+      { headers: SUPA_HDR }
+    );
+    const d = await r.json();
+    return d.length > 0 ? JSON.parse(d[0].value) : null;
+  } catch { return null; }
 }
-async function storageSet(key,val) { try { localStorage.setItem(key,JSON.stringify(val)); } catch {} }
+
+async function storageSet(key, val) {
+  try {
+    await fetch(SUPA_URL+"/rest/v1/app_data", {
+      method: "POST",
+      headers: SUPA_HDR,
+      body: JSON.stringify({ key, value: JSON.stringify(val), updated_at: new Date().toISOString() })
+    });
+  } catch {}
+}
 
 function norm(s) { return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
 function fuzzyScore(query,target) {
