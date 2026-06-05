@@ -62,8 +62,8 @@ const blankGF = (cats) => ({cat:cats[0]||"Frutas y Verduras",prod:"",useCustom:f
 
 // ─── Supabase sync ────────────────────────────────────────────
 // Pega aquí tus credenciales de supabase.com → Settings → API
-const SUPA_URL = "https://ldreshghjcaurfgnwjxa.supabase.co";
-const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkcmVzaGdoamNhdXJmZ253anhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1OTY4NTIsImV4cCI6MjA5NjE3Mjg1Mn0.fKeRYxkZhiFeoFxw_sLy1H_S8hx5ffmGvApzkZ3Ssbo";
+const SUPA_URL = "https://TU-PROYECTO.supabase.co";  // ← reemplaza
+const SUPA_KEY = "tu-anon-key-aqui";                  // ← reemplaza
 // ──────────────────────────────────────────────────────────────
 
 const SUPA_HDR = {
@@ -347,8 +347,10 @@ export default function App() {
   const [npPin,setNpPin]         = useState("");
   const [changePinId,setChangePinId] = useState(null);
   const [changePinVal,setChangePinVal] = useState("");
-  const [filterCat,setFilterCat] = useState(null);
-  const [filterDate,setFilterDate] = useState(null);
+  const [filterCat,setFilterCat]   = useState(null);
+  const [dateFrom,setDateFrom]     = useState(null);
+  const [dateTo,setDateTo]         = useState(null);
+  const [viewMode,setViewMode]     = useState("compras");
   const [expanded,setExpanded]   = useState({});
   const [loaded,setLoaded]       = useState(false);
   const [saveStatus,setSaveStatus] = useState("saved");
@@ -378,10 +380,22 @@ export default function App() {
   const profile    = profiles.find(p=>p.id===curId);
   const isAdmin    = profile?.role==="admin";
   const grandTotal = useMemo(()=>items.reduce((s,i)=>s+i.importeTotal,0),[items]);
-  const allDates   = useMemo(()=>[...new Set(items.map(i=>i.fecha))].sort((a,b)=>b.localeCompare(a)),[items]);
   const usedCats   = useMemo(()=>[...new Set(items.map(i=>i.cat))]  ,[items]);
-  const visible    = useMemo(()=>{ let r=items; if(filterCat) r=r.filter(i=>i.cat===filterCat); if(filterDate) r=r.filter(i=>i.fecha===filterDate); return r; },[items,filterCat,filterDate]);
+  const visible    = useMemo(()=>{ let r=items; if(filterCat) r=r.filter(i=>i.cat===filterCat); if(dateFrom) r=r.filter(i=>i.fecha>=dateFrom); if(dateTo) r=r.filter(i=>i.fecha<=dateTo); return r; },[items,filterCat,dateFrom,dateTo]);
   const byAl       = useMemo(()=>{ const g={}; for(const i of visible){if(!g[i.al])g[i.al]=[];g[i.al].push(i);} return g; },[visible]);
+  const resumen    = useMemo(()=>{
+    const m={};
+    for(const i of visible){
+      const k=i.prod+"||"+i.unitStd;
+      if(!m[k]) m[k]={prod:i.prod,unitStd:i.unitStd,cat:i.cat,al:i.al,cantTotal:0,totalAmount:0,sinIVATotal:0,impuestosTotal:0,count:0};
+      m[k].cantTotal=r2(m[k].cantTotal+i.cantStd);
+      m[k].totalAmount=r2(m[k].totalAmount+i.importeTotal);
+      m[k].sinIVATotal=r2(m[k].sinIVATotal+i.sinIVA);
+      m[k].impuestosTotal=r2(m[k].impuestosTotal+i.impuestos);
+      m[k].count+=1;
+    }
+    return Object.values(m).sort((a,b)=>b.totalAmount-a.totalAmount);
+  },[visible]);
 
   // ── Auth ──
   const enterP = (p) => { if(p.role==="admin"){setPinTarget(p.id);setPinIn("");setPinErr(false);} else setCurId(p.id); };
@@ -429,12 +443,13 @@ export default function App() {
 
   // ── Excel ──
   const exportXLSX = () => {
-    const src=filterDate?visible:items; if(!src.length) return;
-    const rows=src.map(i=>({"Nombre":i.prod,"Unidad de Medida":i.unitStd,"Cantidad":i.cantStd,"Precio por Unidad de Compra":i.priceStd,"Importe sin IVA":i.sinIVA,"Impuestos":i.impuestos,"Importe Total":i.importeTotal}));
+    if(!visible.length) return;
+    const rows=visible.map(i=>({"Nombre":i.prod,"Unidad de Medida":i.unitStd,"Cantidad":i.cantStd,"Precio por Unidad de Compra":i.priceStd,"Importe sin IVA":i.sinIVA,"Impuestos":i.impuestos,"Importe Total":i.importeTotal}));
     const ws=XLSX.utils.json_to_sheet(rows);
     ws["!cols"]=[25,18,10,24,16,12,14].map(w=>({wch:w}));
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Compras");
-    XLSX.writeFile(wb,"DonComal_"+(filterDate?filterDate:today())+".xlsx");
+    const label=(dateFrom||dateTo)?((dateFrom||"inicio")+"_"+(dateTo||"hoy")):today();
+    XLSX.writeFile(wb,"DonComal_"+label+".xlsx");
   };
 
   // ── Group purchase ──
@@ -826,28 +841,38 @@ export default function App() {
           <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
             <button onClick={()=>{setCatFormVis(false);setCatSearch("");setView("catalogo");}} style={{background:"#1C1C1C",border:"none",borderRadius:"8px",color:"#A08060",padding:"8px 10px",cursor:"pointer",fontSize:"13px",fontWeight:"500",fontFamily:"inherit"}}>📦 Catálogo</button>
             {isAdmin&&<button onClick={()=>setView("settings")} style={{background:"#1C1C1C",border:"none",borderRadius:"8px",color:"#A08060",padding:"8px 10px",cursor:"pointer",fontSize:"16px",fontFamily:"inherit"}}>⚙</button>}
-            <button onClick={exportXLSX} disabled={!visible.length} style={{background:visible.length?"#2D6633":"#1C1C1C",border:"none",borderRadius:"8px",color:visible.length?"white":"#555",padding:"8px 14px",fontSize:"13px",fontWeight:"600",cursor:visible.length?"pointer":"default",fontFamily:"inherit"}}>↓ Excel</button>
+            <button onClick={exportXLSX} disabled={!visible.length} style={{background:visible.length?"#2D6633":"#1C1C1C",border:"none",borderRadius:"8px",color:visible.length?"white":"#555",padding:"8px 14px",fontSize:"13px",fontWeight:"600",cursor:visible.length?"pointer":"default",fontFamily:"inherit"}}>{"↓ Excel"+(visible.length>0?" ("+visible.length+")":"")}</button>
             <div onClick={()=>setCurId(null)} style={{width:"32px",height:"32px",borderRadius:"8px",background:PCOLS[profile.ci%PCOLS.length],display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:"700",fontSize:"14px",cursor:"pointer",fontFamily:"inherit"}}>{profile.name[0]}</div>
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1px",background:"#111",margin:"10px 0 0"}}>
-          <div style={{background:"#161616",padding:"10px 20px"}}><p style={{color:"#666",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px",fontFamily:"inherit"}}>{filterDate?"Insumos ese día":"Insumos totales"}</p><p style={{color:"#F5DFC0",fontSize:"22px",fontWeight:"600",margin:0,fontFamily:"inherit"}}>{visible.length}</p></div>
-          <div style={{background:"#161616",padding:"10px 20px"}}><p style={{color:"#666",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px",fontFamily:"inherit"}}>{filterDate?"Total ese día":"Total acumulado"}</p><p style={{color:"#F5DFC0",fontSize:"22px",fontWeight:"600",margin:0,fontFamily:"inherit"}}>{visible.length>0?fmtMXN(visible.reduce((s,i)=>s+i.importeTotal,0)):"—"}</p></div>
+          <div style={{background:"#161616",padding:"10px 20px"}}><p style={{color:"#666",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px",fontFamily:"inherit"}}>{(dateFrom||dateTo)?"Compras del periodo":"Compras totales"}</p><p style={{color:"#F5DFC0",fontSize:"22px",fontWeight:"600",margin:0,fontFamily:"inherit"}}>{visible.length}</p></div>
+          <div style={{background:"#161616",padding:"10px 20px"}}><p style={{color:"#666",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px",fontFamily:"inherit"}}>{(dateFrom||dateTo)?"Total del periodo":"Total acumulado"}</p><p style={{color:"#F5DFC0",fontSize:"22px",fontWeight:"600",margin:0,fontFamily:"inherit"}}>{visible.length>0?fmtMXN(visible.reduce((s,i)=>s+i.importeTotal,0)):"—"}</p></div>
         </div>
       </div>
 
-      <div style={{padding:"10px 16px 0",display:"flex",gap:"6px",overflowX:"auto",paddingBottom:"8px",alignItems:"center"}}>
-        <span style={{fontSize:"11px",color:"#A08060",fontWeight:"600",whiteSpace:"nowrap",fontFamily:"inherit"}}>FECHA:</span>
-        <button onClick={()=>setFilterDate(null)} style={sPill(!filterDate,"#C4622D",{fontSize:"12px",padding:"5px 10px"})}>Todas</button>
-        {allDates.map(d=>(<button key={d} onClick={()=>setFilterDate(d===filterDate?null:d)} style={sPill(filterDate===d,"#C4622D",{fontSize:"12px",padding:"5px 10px"})}>{fmtD(d)}</button>))}
-      </div>
-      {usedCats.length>1&&(
-        <div style={{padding:"0 16px",display:"flex",gap:"6px",overflowX:"auto",paddingBottom:"8px",alignItems:"center"}}>
-          <span style={{fontSize:"11px",color:"#A08060",fontWeight:"600",whiteSpace:"nowrap",fontFamily:"inherit"}}>CAT:</span>
-          <button onClick={()=>setFilterCat(null)} style={sPill(!filterCat,"#C4622D",{fontSize:"12px",padding:"5px 10px"})}>Todas</button>
-          {usedCats.map(c=>(<button key={c} onClick={()=>setFilterCat(c===filterCat?null:c)} style={sPill(filterCat===c,"#C4622D",{fontSize:"12px",padding:"5px 10px"})}>{c}</button>))}
+      <div style={{padding:"10px 16px 8px"}}>
+        <div style={{display:"flex",gap:"8px",marginBottom:"10px"}}>
+          <button onClick={()=>setViewMode("compras")} style={sPill(viewMode==="compras","#C4622D",{fontSize:"13px"})}>Compras</button>
+          <button onClick={()=>setViewMode("resumen")} style={sPill(viewMode==="resumen","#C4622D",{fontSize:"13px"})}>Resumen</button>
         </div>
-      )}
+        <div style={{display:"flex",gap:"6px",alignItems:"center",flexWrap:"wrap",marginBottom:"6px"}}>
+          <span style={{fontSize:"11px",color:"#A08060",fontWeight:"600",fontFamily:"inherit"}}>PERIODO:</span>
+          <button onClick={()=>{setDateFrom(null);setDateTo(null);}} style={sPill(!dateFrom&&!dateTo,"#C4622D",{fontSize:"12px",padding:"5px 10px"})}>Todo</button>
+          <input type="date" value={dateFrom||""} onChange={e=>setDateFrom(e.target.value||null)}
+            style={{fontSize:"12px",border:"1.5px solid "+(dateFrom?"#C4622D":"#E0D5C8"),borderRadius:"8px",padding:"5px 8px",outline:"none",fontFamily:"inherit",color:"#1C1208",background:"white"}}/>
+          <span style={{fontSize:"12px",color:"#A08060",fontFamily:"inherit"}}>→</span>
+          <input type="date" value={dateTo||""} onChange={e=>setDateTo(e.target.value||null)}
+            style={{fontSize:"12px",border:"1.5px solid "+(dateTo?"#C4622D":"#E0D5C8"),borderRadius:"8px",padding:"5px 8px",outline:"none",fontFamily:"inherit",color:"#1C1208",background:"white"}}/>
+        </div>
+        {usedCats.length>1&&(
+          <div style={{display:"flex",gap:"6px",overflowX:"auto",paddingBottom:"4px",alignItems:"center"}}>
+            <span style={{fontSize:"11px",color:"#A08060",fontWeight:"600",whiteSpace:"nowrap",fontFamily:"inherit"}}>CAT:</span>
+            <button onClick={()=>setFilterCat(null)} style={sPill(!filterCat,"#C4622D",{fontSize:"12px",padding:"5px 8px"})}>Todas</button>
+            {usedCats.map(ct=>(<button key={ct} onClick={()=>setFilterCat(ct===filterCat?null:ct)} style={sPill(filterCat===ct,"#C4622D",{fontSize:"12px",padding:"5px 8px"})}>{ct}</button>))}
+          </div>
+        )}
+      </div>
 
       <div style={{padding:"4px 16px 8px",display:"flex",alignItems:"center",gap:"6px"}}>
         <div style={{width:"7px",height:"7px",borderRadius:"50%",background:saveStatus==="saved"?"#2D6633":"#C4622D"}}/>
@@ -855,13 +880,51 @@ export default function App() {
       </div>
 
       <div style={{padding:"0 16px"}}>
-        {visible.length===0?(
-          <div style={{textAlign:"center",padding:"50px 20px",color:"#A08060"}}>
-            <p style={{fontSize:"40px",margin:"0 0 12px"}}>🛒</p>
-            <p style={{fontSize:"15px",fontWeight:"600",color:"#5A4A3A",margin:"0 0 6px",fontFamily:"inherit"}}>{items.length===0?"Sin compras registradas":"Sin resultados para este filtro"}</p>
-            <p style={{fontSize:"13px",margin:0,fontFamily:"inherit"}}>{items.length===0?"Usa los botones de abajo para agregar":"Prueba cambiando la fecha o categoría"}</p>
-          </div>
+        {viewMode==="resumen"?(
+          resumen.length===0?(
+            <div style={{textAlign:"center",padding:"50px 20px",color:"#A08060"}}>
+              <p style={{fontSize:"40px",margin:"0 0 12px"}}>📊</p>
+              <p style={{fontSize:"15px",fontWeight:"600",color:"#5A4A3A",margin:"0 0 6px",fontFamily:"inherit"}}>Sin datos para este periodo</p>
+            </div>
+          ):(
+            <div>
+              <div style={{background:"#1A0A00",borderRadius:"12px",padding:"12px 16px",marginBottom:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <p style={{color:"#A08060",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px",fontFamily:"inherit"}}>
+                    {(dateFrom||dateTo)?(dateFrom&&dateTo?fmtD(dateFrom)+" → "+fmtD(dateTo):dateFrom?("Desde "+fmtD(dateFrom)):("Hasta "+fmtD(dateTo))):"Todo el historial"}
+                  </p>
+                  <p style={{color:"#F5DFC0",fontSize:"13px",margin:0,fontFamily:"inherit"}}>{visible.length+" registros · "+resumen.length+" productos únicos"}</p>
+                </div>
+                <p style={{color:"#C4622D",fontSize:"20px",fontWeight:"700",margin:0,fontFamily:"inherit"}}>{fmtMXN(visible.reduce((s,i)=>s+i.importeTotal,0))}</p>
+              </div>
+              {resumen.map(item=>{
+                const clr=alClr(item.al);
+                return (
+                  <div key={item.prod+item.unitStd} style={{background:"white",borderRadius:"12px",border:"1.5px solid #EAE0D5",marginBottom:"8px",padding:"11px 13px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"10px"}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"6px",marginBottom:"3px"}}>
+                          <span style={{fontSize:"15px",fontWeight:"600",color:"#1C1208",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontFamily:"inherit"}}>{item.prod}</span>
+                          <span style={{fontSize:"11px",background:clr+"22",color:clr,borderRadius:"4px",padding:"1px 6px",whiteSpace:"nowrap",fontFamily:"inherit"}}>{item.cat}</span>
+                        </div>
+                        <p style={{fontSize:"12px",color:"#8A7B6A",margin:0,fontFamily:"inherit"}}>{r2(item.cantTotal)+" "+item.unitStd+" · "+item.count+" "+(item.count===1?"compra":"compras")}</p>
+                        <p style={{fontSize:"11px",color:"#A08060",margin:"2px 0 0",fontFamily:"inherit"}}>{"Sin IVA: "+fmtMXN(item.sinIVATotal)+" · IVA: "+fmtMXN(item.impuestosTotal)}</p>
+                      </div>
+                      <p style={{fontSize:"16px",fontWeight:"700",color:clr,margin:0,flexShrink:0,fontFamily:"inherit"}}>{fmtMXN(item.totalAmount)}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
         ):(
+          visible.length===0?(
+            <div style={{textAlign:"center",padding:"50px 20px",color:"#A08060"}}>
+              <p style={{fontSize:"40px",margin:"0 0 12px"}}>🛒</p>
+              <p style={{fontSize:"15px",fontWeight:"600",color:"#5A4A3A",margin:"0 0 6px",fontFamily:"inherit"}}>{items.length===0?"Sin compras registradas":"Sin resultados para este filtro"}</p>
+              <p style={{fontSize:"13px",margin:0,fontFamily:"inherit"}}>{items.length===0?"Usa los botones de abajo para agregar":"Ajusta el rango de fechas o categoría"}</p>
+            </div>
+          ):(
           Object.entries(byAl).map(([al,its])=>{
             const alTotal=its.reduce((s,i)=>s+i.importeTotal,0), clr=alClr(al);
             return (
@@ -919,7 +982,7 @@ export default function App() {
               </div>
             );
           })
-        )}
+        ))}
       </div>
 
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"430px",paddingTop:"10px",paddingRight:"16px",paddingBottom:"calc(20px + env(safe-area-inset-bottom))",paddingLeft:"16px",background:"linear-gradient(to top,#FAF5EE 65%,rgba(250,245,238,0))"}}>
