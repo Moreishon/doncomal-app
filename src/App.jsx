@@ -60,11 +60,10 @@ function calcItem(f) {
 const blankF  = (als,cats) => ({fecha:today(),prov:"",al:als[0]||"Almacén 1",cat:cats[0]||"Frutas y Verduras",prod:"",useCustom:false,unit:"kg",qty:"",customUnit:"",equiv:"",stdUnit:"kg",price:"",iva:0.16,notas:""});
 const blankGF = (cats) => ({cat:cats[0]||"Frutas y Verduras",prod:"",useCustom:false,unit:"kg",qty:"",customUnit:"",equiv:"",stdUnit:"kg",price:"",iva:0.16,notas:""});
 
-// ─── Supabase sync ────────────────────────────────────────────
-// Pega aquí tus credenciales de supabase.com → Settings → API
-const SUPA_URL = "https://TU-PROYECTO.supabase.co";  // ← reemplaza
-const SUPA_KEY = "tu-anon-key-aqui";                  // ← reemplaza
-// ──────────────────────────────────────────────────────────────
+// ─── Supabase sync ───────────────────────────────────────────
+const SUPA_URL = "https://ldreshghjcaurfgnwjxa.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkcmVzaGdoamNhdXJmZ253anhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1OTY4NTIsImV4cCI6MjA5NjE3Mjg1Mn0.fKeRYxkZhiFeoFxw_sLy1H_S8hx5ffmGvApzkZ3Ssbo";
+// ─────────────────────────────────────────────────────────────
 
 const SUPA_HDR = {
   "apikey": SUPA_KEY,
@@ -75,10 +74,7 @@ const SUPA_HDR = {
 
 async function storageGet(key) {
   try {
-    const r = await fetch(
-      SUPA_URL+"/rest/v1/app_data?key=eq."+key+"&select=value",
-      { headers: SUPA_HDR }
-    );
+    const r = await fetch(SUPA_URL+"/rest/v1/app_data?key=eq."+key+"&select=value", {headers:SUPA_HDR});
     const d = await r.json();
     return d.length > 0 ? JSON.parse(d[0].value) : null;
   } catch { return null; }
@@ -87,9 +83,8 @@ async function storageGet(key) {
 async function storageSet(key, val) {
   try {
     await fetch(SUPA_URL+"/rest/v1/app_data", {
-      method: "POST",
-      headers: SUPA_HDR,
-      body: JSON.stringify({ key, value: JSON.stringify(val), updated_at: new Date().toISOString() })
+      method:"POST", headers:SUPA_HDR,
+      body:JSON.stringify({key, value:JSON.stringify(val), updated_at:new Date().toISOString()})
     });
   } catch {}
 }
