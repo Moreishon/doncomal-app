@@ -365,6 +365,7 @@ export default function App() {
   const [expGrpGasto,setExpGrpGasto] = useState({});
 
   // ── Load from storage ──
+  const _ready = React.useRef(false);
   useEffect(()=>{
     (async()=>{
       const si=await storageGet("dc_items");     if(si) setItems(si);
@@ -373,16 +374,17 @@ export default function App() {
       const sp=await storageGet("dc_profiles");  if(sp) setProfiles(sp);
       const sg=await storageGet("dc_gastos");    if(sg) setGastos(sg);
       const sgc=await storageGet("dc_gasto_cats"); if(sgc) setGastoCats(sgc);
+      _ready.current = true;
       setLoaded(true);
     })();
   },[]);
 
-  useEffect(()=>{ if(!loaded) return; setSaveStatus("saving"); const t=setTimeout(async()=>{ await storageSet("dc_items",items); setSaveStatus("saved"); },600); return ()=>clearTimeout(t); },[items,loaded]);
-  useEffect(()=>{ if(!loaded) return; storageSet("dc_settings",{cats,als}); },[cats,als,loaded]);
-  useEffect(()=>{ if(!loaded) return; storageSet("dc_catalogo",catalogo); },[catalogo,loaded]);
-  useEffect(()=>{ if(!loaded) return; storageSet("dc_profiles",profiles); },[profiles,loaded]);
-  useEffect(()=>{ if(!loaded) return; storageSet("dc_gastos",gastos); },[gastos,loaded]);
-  useEffect(()=>{ if(!loaded) return; storageSet("dc_gasto_cats",gastoCats); },[gastoCats,loaded]);
+  useEffect(()=>{ if(!_ready.current) return; setSaveStatus("saving"); const t=setTimeout(async()=>{ await storageSet("dc_items",items); setSaveStatus("saved"); },600); return ()=>clearTimeout(t); },[items]);
+  useEffect(()=>{ if(!_ready.current) return; storageSet("dc_settings",{cats,als}); },[cats,als]);
+  useEffect(()=>{ if(!_ready.current) return; storageSet("dc_catalogo",catalogo); },[catalogo]);
+  useEffect(()=>{ if(!_ready.current) return; storageSet("dc_profiles",profiles); },[profiles]);
+  useEffect(()=>{ if(!_ready.current) return; storageSet("dc_gastos",gastos); },[gastos]);
+  useEffect(()=>{ if(!_ready.current) return; storageSet("dc_gasto_cats",gastoCats); },[gastoCats]);
 
   const profile    = profiles.find(p=>p.id===curId);
   const isAdmin    = profile?.role==="admin";
