@@ -62,12 +62,6 @@ function calcItem(f) {
 const blankF  = (als,cats) => ({fecha:today(),prov:"",al:als[0]||"Almacén 1",cat:cats[0]||"Frutas y Verduras",prod:"",useCustom:false,unit:"kg",qty:"",customUnit:"",equiv:"",stdUnit:"kg",price:"",iva:0.16,notas:""});
 const blankGF = (cats) => ({cat:cats[0]||"Frutas y Verduras",prod:"",useCustom:false,unit:"kg",qty:"",customUnit:"",equiv:"",stdUnit:"kg",price:"",iva:0.16,notas:""});
 
-// ─── Supabase sync ────────────────────────────────────────────
-// Pega aquí tus credenciales de supabase.com → Settings → API
-const SUPA_URL = "https://ldreshghjcaurfgnwjxa.supabase.co";  // ← reemplaza
-const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkcmVzaGdoamNhdXJmZ253anhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1OTY4NTIsImV4cCI6MjA5NjE3Mjg1Mn0.fKeRYxkZhiFeoFxw_sLy1H_S8hx5ffmGvApzkZ3Ssbo";                  // ← reemplaza
-// ──────────────────────────────────────────────────────────────
-
 // ─── Supabase sync ───────────────────────────────────────────
 const SUPA_URL = "https://ldreshghjcaurfgnwjxa.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkcmVzaGdoamNhdXJmZ253anhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1OTY4NTIsImV4cCI6MjA5NjE3Mjg1Mn0.fKeRYxkZhiFeoFxw_sLy1H_S8hx5ffmGvApzkZ3Ssbo";
@@ -1072,7 +1066,7 @@ export default function App() {
       </div>
 
       <div style={{padding:"0 16px"}}>
-        {viewMode==="resumen"?(
+        {viewMode==="resumen"&&(
           resumen.length===0?(
             <div style={{textAlign:"center",padding:"50px 20px",color:"#A08060"}}>
               <p style={{fontSize:"40px",margin:"0 0 12px"}}>📊</p>
@@ -1109,7 +1103,8 @@ export default function App() {
               })}
             </div>
           )
-        ):viewMode==="compras"?(
+        )}
+        {viewMode==="compras"&&(
           visible.length===0?(
             <div style={{textAlign:"center",padding:"50px 20px",color:"#A08060"}}>
               <p style={{fontSize:"40px",margin:"0 0 12px"}}>🛒</p>
@@ -1175,7 +1170,7 @@ export default function App() {
               </div>
             );
           })
-        ):null)}
+        ))}
 
         {viewMode==="gastos"&&(
           visibleGastos.length===0?(
