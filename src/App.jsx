@@ -15,7 +15,7 @@ const PR_DEF  = [
 ];
 const MONTHS = "ene feb mar abr may jun jul ago sep oct nov dic".split(" ");
 
-const today  = () => new Date().toISOString().split("T")[0];
+const today  = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 const fmtD   = (s) => { if(!s) return ""; const [,m,d]=s.split("-"); return d+" "+MONTHS[+m-1]; };
 const fmtMXN = (n) => new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN"}).format(n);
 const r2     = (n) => Math.round(n*100)/100;
@@ -62,6 +62,12 @@ function calcItem(f) {
 const blankF  = (als,cats) => ({fecha:today(),prov:"",al:als[0]||"Almacén 1",cat:cats[0]||"Frutas y Verduras",prod:"",useCustom:false,unit:"kg",qty:"",customUnit:"",equiv:"",stdUnit:"kg",price:"",iva:0.16,notas:""});
 const blankGF = (cats) => ({cat:cats[0]||"Frutas y Verduras",prod:"",useCustom:false,unit:"kg",qty:"",customUnit:"",equiv:"",stdUnit:"kg",price:"",iva:0.16,notas:""});
 
+// ─── Supabase sync ────────────────────────────────────────────
+// Pega aquí tus credenciales de supabase.com → Settings → API
+const SUPA_URL = "https://ldreshghjcaurfgnwjxa.supabase.co";  // ← reemplaza
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkcmVzaGdoamNhdXJmZ253anhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1OTY4NTIsImV4cCI6MjA5NjE3Mjg1Mn0.fKeRYxkZhiFeoFxw_sLy1H_S8hx5ffmGvApzkZ3Ssbo";                  // ← reemplaza
+// ──────────────────────────────────────────────────────────────
+
 // ─── Supabase sync ───────────────────────────────────────────
 const SUPA_URL = "https://ldreshghjcaurfgnwjxa.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkcmVzaGdoamNhdXJmZ253anhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1OTY4NTIsImV4cCI6MjA5NjE3Mjg1Mn0.fKeRYxkZhiFeoFxw_sLy1H_S8hx5ffmGvApzkZ3Ssbo";
@@ -81,8 +87,8 @@ async function storageGet(key) {
 async function storageSet(key, val) {
   try {
     await fetch(SUPA_URL+"/rest/v1/app_data", {
-      method: "POST", headers: SUPA_HDR,
-      body: JSON.stringify({key, value: JSON.stringify(val), updated_at: new Date().toISOString()})
+      method:"POST", headers:SUPA_HDR,
+      body:JSON.stringify({key, value:JSON.stringify(val), updated_at:new Date().toISOString()})
     });
   } catch {}
 }
@@ -343,7 +349,7 @@ export default function App() {
   const [filterCat,setFilterCat]   = useState(null);
   const [dateFrom,setDateFrom]     = useState(null);
   const [dateTo,setDateTo]         = useState(null);
-  const [viewMode,setViewMode]     = useState("compras");
+  const [viewMode,setViewMode]     = useState("resumen");
   const [expanded,setExpanded]   = useState({});
   const [loaded,setLoaded]       = useState(false);
   const [saveStatus,setSaveStatus] = useState("saved");
@@ -1033,8 +1039,8 @@ export default function App() {
 
       <div style={{padding:"10px 16px 8px"}}>
         <div style={{display:"flex",gap:"8px",marginBottom:"10px"}}>
-          <button onClick={()=>setViewMode("compras")} style={sPill(viewMode==="compras","#C4622D",{fontSize:"13px"})}>Compras</button>
           <button onClick={()=>setViewMode("resumen")} style={sPill(viewMode==="resumen","#C4622D",{fontSize:"13px"})}>Resumen</button>
+          <button onClick={()=>setViewMode("compras")} style={sPill(viewMode==="compras","#C4622D",{fontSize:"13px"})}>Compras</button>
           <button onClick={()=>setViewMode("gastos")} style={sPill(viewMode==="gastos","#8B5E3C",{fontSize:"13px"})}>Gastos Fijos</button>
         </div>
         <div style={{display:"flex",gap:"6px",alignItems:"center",flexWrap:"wrap",marginBottom:"6px"}}>
@@ -1169,7 +1175,7 @@ export default function App() {
               </div>
             );
           })
-        ))}
+        ):null)}
 
         {viewMode==="gastos"&&(
           visibleGastos.length===0?(
