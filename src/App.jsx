@@ -4,7 +4,9 @@ const LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAlgAAADWCAIAAACCIWsK
 
 const CAT_DEF = ["Frutas y Verduras","Proteínas","Lácteos","Condimentos","Bebidas","Limpieza","Otros"];
 const AL_DEF  = ["Almacén 1","Refrigeración"];
-const UNITS   = ["kg","g","lt","ml","pz","caja","botella","lata","sobre","rollo","bote"];
+const UNITS      = ["kg","g","lt","ml","pz","caja","botella","lata","sobre","rollo","bote"];
+const NOMINA_AREAS = ["Cocina","Piso","Limpieza","Otro"];
+const GASTO_CATS_DEF = ["Renta","Servicios (agua/luz/gas)","Internet/Teléfono","Nómina","Mantenimiento","Limpieza","Otros"];
 const AL_CLR  = {"Almacén 1":"#C4622D","Refrigeración":"#2D5580"};
 const PCOLS   = ["#C4622D","#2D6633","#2D5580","#8B5E3C","#7A2D8B","#2D7A7A"];
 const PR_DEF  = [
@@ -60,10 +62,11 @@ function calcItem(f) {
 const blankF  = (als,cats) => ({fecha:today(),prov:"",al:als[0]||"Almacén 1",cat:cats[0]||"Frutas y Verduras",prod:"",useCustom:false,unit:"kg",qty:"",customUnit:"",equiv:"",stdUnit:"kg",price:"",iva:0.16,notas:""});
 const blankGF = (cats) => ({cat:cats[0]||"Frutas y Verduras",prod:"",useCustom:false,unit:"kg",qty:"",customUnit:"",equiv:"",stdUnit:"kg",price:"",iva:0.16,notas:""});
 
-// ─── Supabase sync ───────────────────────────────────────────
-const SUPA_URL = "https://ldreshghjcaurfgnwjxa.supabase.co";
-const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkcmVzaGdoamNhdXJmZ253anhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1OTY4NTIsImV4cCI6MjA5NjE3Mjg1Mn0.fKeRYxkZhiFeoFxw_sLy1H_S8hx5ffmGvApzkZ3Ssbo";
-// ─────────────────────────────────────────────────────────────
+// ─── Supabase sync ────────────────────────────────────────────
+// Pega aquí tus credenciales de supabase.com → Settings → API
+const SUPA_URL = "https://TU-PROYECTO.supabase.co";  // ← reemplaza
+const SUPA_KEY = "tu-anon-key-aqui";                  // ← reemplaza
+// ──────────────────────────────────────────────────────────────
 
 const SUPA_HDR = {
   "apikey": SUPA_KEY,
@@ -74,7 +77,10 @@ const SUPA_HDR = {
 
 async function storageGet(key) {
   try {
-    const r = await fetch(SUPA_URL+"/rest/v1/app_data?key=eq."+key+"&select=value", {headers:SUPA_HDR});
+    const r = await fetch(
+      SUPA_URL+"/rest/v1/app_data?key=eq."+key+"&select=value",
+      { headers: SUPA_HDR }
+    );
     const d = await r.json();
     return d.length > 0 ? JSON.parse(d[0].value) : null;
   } catch { return null; }
@@ -83,8 +89,9 @@ async function storageGet(key) {
 async function storageSet(key, val) {
   try {
     await fetch(SUPA_URL+"/rest/v1/app_data", {
-      method:"POST", headers:SUPA_HDR,
-      body:JSON.stringify({key, value:JSON.stringify(val), updated_at:new Date().toISOString()})
+      method: "POST",
+      headers: SUPA_HDR,
+      body: JSON.stringify({ key, value: JSON.stringify(val), updated_at: new Date().toISOString() })
     });
   } catch {}
 }
@@ -355,6 +362,16 @@ export default function App() {
   const [catEditId,setCatEditId]   = useState(null);
   const [catSearch,setCatSearch]   = useState("");
   const [catErr,setCatErr]         = useState(false);
+  const [gastos,setGastos]         = useState([]);
+  const [gastoForm,setGastoForm]   = useState(null);
+  const [gastoEditId,setGastoEditId] = useState(null);
+  const [gastoErrs,setGastoErrs]   = useState({});
+  const [delGastoId,setDelGastoId]   = useState(null);
+  const [gastoCats,setGastoCats]     = useState(GASTO_CATS_DEF);
+  const [nominaItems,setNominaItems] = useState([]);
+  const [nominaForm,setNominaForm]   = useState({nombre:"",dias:"",monto:""});
+  const [nominaErr,setNominaErr]     = useState({});
+  const [expGrpGasto,setExpGrpGasto] = useState({});
 
   // ── Load from storage ──
   useEffect(()=>{
@@ -363,6 +380,8 @@ export default function App() {
       const ss=await storageGet("dc_settings");  if(ss){ if(ss.cats) setCats(ss.cats); if(ss.als) setAls(ss.als); }
       const sc=await storageGet("dc_catalogo");  if(sc) setCatalogo(sc);
       const sp=await storageGet("dc_profiles");  if(sp) setProfiles(sp);
+      const sg=await storageGet("dc_gastos");    if(sg) setGastos(sg);
+      const sgc=await storageGet("dc_gasto_cats"); if(sgc) setGastoCats(sgc);
       setLoaded(true);
     })();
   },[]);
@@ -371,6 +390,8 @@ export default function App() {
   useEffect(()=>{ if(!loaded) return; storageSet("dc_settings",{cats,als}); },[cats,als,loaded]);
   useEffect(()=>{ if(!loaded) return; storageSet("dc_catalogo",catalogo); },[catalogo,loaded]);
   useEffect(()=>{ if(!loaded) return; storageSet("dc_profiles",profiles); },[profiles,loaded]);
+  useEffect(()=>{ if(!loaded) return; storageSet("dc_gastos",gastos); },[gastos,loaded]);
+  useEffect(()=>{ if(!loaded) return; storageSet("dc_gasto_cats",gastoCats); },[gastoCats,loaded]);
 
   const profile    = profiles.find(p=>p.id===curId);
   const isAdmin    = profile?.role==="admin";
@@ -378,7 +399,27 @@ export default function App() {
   const usedCats   = useMemo(()=>[...new Set(items.map(i=>i.cat))]  ,[items]);
   const visible    = useMemo(()=>{ let r=items; if(filterCat) r=r.filter(i=>i.cat===filterCat); if(dateFrom) r=r.filter(i=>i.fecha>=dateFrom); if(dateTo) r=r.filter(i=>i.fecha<=dateTo); return r; },[items,filterCat,dateFrom,dateTo]);
   const byAl       = useMemo(()=>{ const g={}; for(const i of visible){if(!g[i.al])g[i.al]=[];g[i.al].push(i);} return g; },[visible]);
-  const resumen    = useMemo(()=>{
+  const visibleGastos = useMemo(()=>{
+    let r=gastos;
+    if(dateFrom) r=r.filter(g=>g.fecha>=dateFrom);
+    if(dateTo)   r=r.filter(g=>g.fecha<=dateTo);
+    return r.sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  },[gastos,dateFrom,dateTo]);
+
+  const gastoDisplayItems = useMemo(()=>{
+    const result=[], seen=new Set();
+    for(const g of visibleGastos){
+      if(!g.grupoId){ result.push({type:"single",data:g}); }
+      else if(!seen.has(g.grupoId)){
+        seen.add(g.grupoId);
+        const its=visibleGastos.filter(x=>x.grupoId===g.grupoId);
+        result.push({type:"group",grupoId:g.grupoId,label:g.grupoLabel||g.categoria,fecha:g.fecha,cat:g.categoria,items:its,total:its.reduce((s,x)=>s+x.monto,0),by:g.by});
+      }
+    }
+    return result;
+  },[visibleGastos]);
+
+  const resumen = useMemo(()=>{
     const m={};
     for(const i of visible){
       const k=i.prod+"||"+i.unitStd;
@@ -435,6 +476,48 @@ export default function App() {
     setView("list"); setEditId(null);
   };
   const doDelete = () => { setItems(prev=>prev.filter(i=>i.id!==delId)); setDelId(null); };
+
+  // ── Gastos fijos ──
+  const blankGastoF  = () => ({fecha:today(),concepto:"",categoria:gastoCats[0]||GASTO_CATS_DEF[0],monto:"",notas:"",esNomina:false});
+  const openGasto = (it=null) => {
+    if(it){ setGastoEditId(it.id); setGastoForm({fecha:it.fecha,concepto:it.concepto,categoria:it.categoria,monto:String(it.monto),notas:it.notas||"",esNomina:false}); }
+    else  { setGastoEditId(null); setGastoForm(blankGastoF()); }
+    setNominaItems([]); setNominaForm({nombre:"",dias:"",monto:"",area:NOMINA_AREAS[0]}); setNominaErr({});
+    setGastoErrs({}); setView("gasto_form");
+  };
+  const addNominaItem = () => {
+    const e={};
+    if(!nominaForm.nombre.trim()) e.nombre=true;
+    if(!(parseFloat(nominaForm.monto)>0)) e.monto=true;
+    if(Object.keys(e).length){ setNominaErr(e); return; }
+    setNominaItems(prev=>[...prev,{nombre:nominaForm.nombre.trim(),dias:nominaForm.dias,monto:parseFloat(nominaForm.monto),area:nominaForm.area}]);
+    setNominaForm({nombre:"",dias:"",monto:"",area:NOMINA_AREAS[0]}); setNominaErr({});
+  };
+  const removeNominaItem = (idx) => setNominaItems(prev=>prev.filter((_,i)=>i!==idx));
+
+  const saveGasto = () => {
+    if(gastoForm.esNomina){
+      if(nominaItems.length===0) return;
+      const gid="n_"+Date.now();
+      const label=gastoForm.concepto.trim()||"Nómina";
+      const entries=nominaItems.map((emp,i)=>({
+        id:Date.now()+i,fecha:gastoForm.fecha,concepto:emp.nombre,categoria:gastoForm.categoria,
+        monto:emp.monto,notas:emp.dias?(emp.dias+" días trabajados"):"",area:emp.area||"",by:curId,
+        grupoId:gid,grupoLabel:label,diasTrabajados:parseFloat(emp.dias)||null
+      }));
+      setGastos(prev=>[...prev,...entries]);
+    } else {
+      const e={};
+      if(!gastoForm.concepto.trim()) e.concepto=true;
+      if(!(parseFloat(gastoForm.monto)>0)) e.monto=true;
+      if(Object.keys(e).length){ setGastoErrs(e); return; }
+      const entry={id:gastoEditId||Date.now(),fecha:gastoForm.fecha,concepto:gastoForm.concepto.trim(),categoria:gastoForm.categoria,monto:parseFloat(gastoForm.monto),notas:gastoForm.notas.trim(),by:curId,grupoId:null};
+      setGastos(prev=>gastoEditId?prev.map(g=>g.id===gastoEditId?entry:g):[...prev,entry]);
+      setGastoEditId(null);
+    }
+    setView("list"); setNominaItems([]);
+  };
+  const doDeleteGasto = (grupoId=null) => { setGastos(prev=>grupoId?prev.filter(g=>g.grupoId!==grupoId):prev.filter(g=>g.id!==delGastoId)); setDelGastoId(null); };
 
   // ── Excel ──
   const exportXLSX = () => {
@@ -678,10 +761,11 @@ export default function App() {
         <div style={HDR_STYLE}><button onClick={()=>setView("list")} style={BACK_BTN}>←</button><span style={HDR_TITLE}>Configuración</span></div>
         <div style={{padding:"16px"}}>
           <div style={{display:"flex",gap:"8px",marginBottom:"20px",overflowX:"auto",paddingBottom:"4px"}}>
-            {["almacenes","categorias","perfiles"].map(t=>(<button key={t} onClick={()=>setStab(t)} style={sPill(stab===t,"#C4622D",{fontSize:"13px"})}>{t==="almacenes"?"Almacenes":t==="categorias"?"Categorías":"Perfiles"}</button>))}
+            {["almacenes","categorias","gastos","perfiles"].map(t=>(<button key={t} onClick={()=>setStab(t)} style={sPill(stab===t,"#C4622D",{fontSize:"13px"})}>{t==="almacenes"?"Almacenes":t==="categorias"?"Categorías de Compras":t==="gastos"?"Gastos Fijos":"Perfiles"}</button>))}
           </div>
           {stab==="almacenes"&&(<div style={sCard({padding:"16px"})}><label style={sLbl("12px")}>Almacenes activos</label><ListMgr list={als} newVal={newIn} onNewVal={setNewIn} onAdd={()=>addToList(als,setAls)} onRemove={(v)=>remFromList(als,setAls,v)}/></div>)}
           {stab==="categorias"&&(<div style={sCard({padding:"16px"})}><label style={sLbl("12px")}>Categorías de productos</label><ListMgr list={cats} newVal={newIn} onNewVal={setNewIn} onAdd={()=>addToList(cats,setCats)} onRemove={(v)=>remFromList(cats,setCats,v)}/></div>)}
+          {stab==="gastos"&&(<div style={sCard({padding:"16px"})}><label style={sLbl("12px")}>Categorías de gastos fijos</label><ListMgr list={gastoCats} newVal={newIn} onNewVal={setNewIn} onAdd={()=>addToList(gastoCats,setGastoCats)} onRemove={(v)=>remFromList(gastoCats,setGastoCats,v)}/></div>)}
           {stab==="perfiles"&&(
             <div>
               <div style={sCard({padding:"16px",marginBottom:"16px"})}>
@@ -825,6 +909,116 @@ export default function App() {
   );
 
   // ══════════════════════════════════════════
+  // GASTO FORM
+  // ══════════════════════════════════════════
+  if(view==="gasto_form") return (
+    <div style={{fontFamily:"inherit",background:"#FAF5EE",minHeight:"100vh",maxWidth:"430px",margin:"0 auto",paddingBottom:"100px"}}>
+      <style>{FONT_CSS}</style>
+      <div style={{paddingTop:"calc(16px + env(safe-area-inset-top))",paddingRight:"20px",paddingBottom:"16px",paddingLeft:"20px",background:"#0A0A0A",display:"flex",alignItems:"center",gap:"12px",position:"sticky",top:0,zIndex:10}}>
+        <button onClick={()=>setView("list")} style={BACK_BTN}>←</button>
+        <span style={HDR_TITLE}>{gastoEditId?"Editar gasto":"Nuevo gasto"}</span>
+      </div>
+      <div style={{padding:"16px"}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"14px"}}>
+          <div>
+            <label style={sLbl()}>Fecha</label>
+            <input type="date" value={gastoForm.fecha} onChange={e=>setGastoForm(p=>({...p,fecha:e.target.value}))} style={sInp(false)}/>
+          </div>
+          <div>
+            <label style={sLbl()}>Monto *</label>
+            <input type="number" inputMode="decimal" value={gastoForm.monto} onChange={e=>{setGastoForm(p=>({...p,monto:e.target.value}));setGastoErrs(p=>({...p,monto:false}));}} placeholder="0.00" style={sInp(gastoErrs.monto)}/>
+            {gastoErrs.monto&&<span style={ERR_MSG}>Requerido</span>}
+          </div>
+        </div>
+        <div style={{marginBottom:"14px"}}>
+          <label style={sLbl()}>Concepto *</label>
+          <input type="text" value={gastoForm.concepto} onChange={e=>{setGastoForm(p=>({...p,concepto:e.target.value}));setGastoErrs(p=>({...p,concepto:false}));}} placeholder="Ej: Renta de local, Factura de luz..." style={sInp(gastoErrs.concepto)}/>
+          {gastoErrs.concepto&&<span style={ERR_MSG}>Campo requerido</span>}
+        </div>
+        <div style={{marginBottom:"14px"}}>
+          <label style={sLbl("8px")}>Categoría</label>
+          <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+            {gastoCats.map(cat=>(
+              <button key={cat} onClick={()=>setGastoForm(p=>({...p,categoria:cat}))}
+                style={sPill(gastoForm.categoria===cat,"#8B5E3C",{fontSize:"12px",padding:"6px 12px"})}>
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{marginBottom:"14px"}}>
+          <label style={sLbl()}>Notas</label>
+          <input type="text" value={gastoForm.notas} onChange={e=>setGastoForm(p=>({...p,notas:e.target.value}))} placeholder="Opcional" style={sInp(false)}/>
+        </div>
+        <div style={{background:"#F8F3EE",borderRadius:"10px",padding:"12px",marginBottom:"20px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:gastoForm.esNomina?"12px":"0"}}>
+            <label style={sLbl("0")}>Registro por empleado</label>
+            <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+              <span style={{fontSize:"12px",color:gastoForm.esNomina?"#8B5E3C":"#8A7B6A",fontFamily:"inherit"}}>Activar</span>
+              <div onClick={()=>{setGastoForm(p=>({...p,esNomina:!p.esNomina}));setNominaItems([]);setNominaForm({nombre:"",dias:"",monto:""});}}
+                style={{width:"40px",height:"22px",borderRadius:"11px",background:gastoForm.esNomina?"#8B5E3C":"#D0C8BE",position:"relative",cursor:"pointer"}}>
+                <div style={{position:"absolute",top:"3px",left:gastoForm.esNomina?"21px":"3px",width:"16px",height:"16px",borderRadius:"50%",background:"white",transition:"left 0.2s"}}/>
+              </div>
+            </div>
+          </div>
+          {gastoForm.esNomina&&(
+            <div>
+              {nominaItems.length>0&&(
+                <div style={{marginBottom:"12px"}}>
+                  {nominaItems.map((emp,idx)=>(
+                    <div key={idx} style={{background:"white",borderRadius:"8px",padding:"8px 10px",marginBottom:"6px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <p style={{fontSize:"13px",fontWeight:"600",color:"#1C1208",margin:0,fontFamily:"inherit"}}>{emp.nombre}</p>
+                        <p style={{fontSize:"11px",color:"#8A7B6A",margin:0,fontFamily:"inherit"}}>{emp.area&&<span style={{background:"#EAE0D5",borderRadius:"4px",padding:"1px 5px",marginRight:"4px"}}>{emp.area}</span>}{emp.dias?emp.dias+" días · ":""}{fmtMXN(emp.monto)}</p>
+                      </div>
+                      <button onClick={()=>removeNominaItem(idx)} style={{background:"none",border:"none",color:"#E53E3E",cursor:"pointer",fontSize:"18px",fontFamily:"inherit"}}>×</button>
+                    </div>
+                  ))}
+                  <div style={{background:"#F0EBE3",borderRadius:"8px",padding:"8px 10px",display:"flex",justifyContent:"space-between"}}>
+                    <span style={{fontSize:"13px",color:"#5A4A3A",fontFamily:"inherit"}}>{"Total ("+nominaItems.length+" empleados)"}</span>
+                    <span style={{fontSize:"13px",fontWeight:"700",color:"#8B5E3C",fontFamily:"inherit"}}>{fmtMXN(nominaItems.reduce((s,e)=>s+e.monto,0))}</span>
+                  </div>
+                </div>
+              )}
+              <div style={{background:"white",borderRadius:"10px",padding:"10px"}}>
+                <p style={{fontSize:"12px",fontWeight:"600",color:"#8A7B6A",textTransform:"uppercase",letterSpacing:"0.06em",margin:"0 0 8px",fontFamily:"inherit"}}>Agregar empleado</p>
+                <div style={{marginBottom:"8px"}}>
+                  <input type="text" value={nominaForm.nombre} onChange={e=>{setNominaForm(p=>({...p,nombre:e.target.value}));setNominaErr(p=>({...p,nombre:false}));}} placeholder="Nombre del empleado *" style={sInp(nominaErr.nombre)}/>
+                  {nominaErr.nombre&&<span style={ERR_MSG}>Requerido</span>}
+                </div>
+                <div style={{marginBottom:"8px"}}>
+                  <label style={sLbl("6px")}>Área</label>
+                  <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                    {NOMINA_AREAS.map(a=>(
+                      <button key={a} onClick={()=>setNominaForm(p=>({...p,area:a}))}
+                        style={sPill(nominaForm.area===a,"#8B5E3C",{fontSize:"12px",padding:"5px 10px"})}>
+                        {a}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"8px"}}>
+                  <input type="number" inputMode="decimal" value={nominaForm.dias} onChange={e=>setNominaForm(p=>({...p,dias:e.target.value}))} placeholder="Días trabajados" style={sInp(false)}/>
+                  <div>
+                    <input type="number" inputMode="decimal" value={nominaForm.monto} onChange={e=>{setNominaForm(p=>({...p,monto:e.target.value}));setNominaErr(p=>({...p,monto:false}));}} placeholder="Monto *" style={sInp(nominaErr.monto)}/>
+                    {nominaErr.monto&&<span style={ERR_MSG}>Requerido</span>}
+                  </div>
+                </div>
+                <button onClick={addNominaItem} style={{width:"100%",background:"white",color:"#8B5E3C",border:"2px solid #8B5E3C",borderRadius:"8px",padding:"10px",fontSize:"13px",fontWeight:"600",cursor:"pointer",fontFamily:"inherit"}}>+ Agregar empleado</button>
+              </div>
+            </div>
+          )}
+        </div>
+        <button onClick={saveGasto}
+          disabled={gastoForm.esNomina&&nominaItems.length===0}
+          style={{width:"100%",background:gastoForm.esNomina&&nominaItems.length===0?"#D0C8BE":"#8B5E3C",color:"white",border:"none",borderRadius:"12px",padding:"16px",fontSize:"16px",fontWeight:"600",cursor:gastoForm.esNomina&&nominaItems.length===0?"default":"pointer",fontFamily:"inherit"}}>
+          {gastoEditId?"Guardar cambios":(gastoForm.esNomina?"Guardar nómina ("+nominaItems.length+" empleados)":"Registrar gasto")}
+        </button>
+      </div>
+    </div>
+  );
+
+  // ══════════════════════════════════════════
   // LIST VIEW
   // ══════════════════════════════════════════
   return (
@@ -850,10 +1044,16 @@ export default function App() {
         <div style={{display:"flex",gap:"8px",marginBottom:"10px"}}>
           <button onClick={()=>setViewMode("compras")} style={sPill(viewMode==="compras","#C4622D",{fontSize:"13px"})}>Compras</button>
           <button onClick={()=>setViewMode("resumen")} style={sPill(viewMode==="resumen","#C4622D",{fontSize:"13px"})}>Resumen</button>
+          <button onClick={()=>setViewMode("gastos")} style={sPill(viewMode==="gastos","#8B5E3C",{fontSize:"13px"})}>Gastos Fijos</button>
         </div>
         <div style={{display:"flex",gap:"6px",alignItems:"center",flexWrap:"wrap",marginBottom:"6px"}}>
           <span style={{fontSize:"11px",color:"#A08060",fontWeight:"600",fontFamily:"inherit"}}>PERIODO:</span>
           <button onClick={()=>{setDateFrom(null);setDateTo(null);}} style={sPill(!dateFrom&&!dateTo,"#C4622D",{fontSize:"12px",padding:"5px 10px"})}>Todo</button>
+          {[["Hoy",0],["Ayer",1],["Antier",2]].map(([lbl,off])=>{
+            const d=new Date(); d.setDate(d.getDate()-off);
+            const ds=d.toISOString().split("T")[0];
+            return <button key={lbl} onClick={()=>{setDateFrom(ds);setDateTo(ds);}} style={sPill(dateFrom===ds&&dateTo===ds,"#C4622D",{fontSize:"12px",padding:"5px 10px"})}>{lbl}</button>;
+          })}
           <input type="date" value={dateFrom||""} onChange={e=>setDateFrom(e.target.value||null)}
             style={{fontSize:"12px",border:"1.5px solid "+(dateFrom?"#C4622D":"#E0D5C8"),borderRadius:"8px",padding:"5px 8px",outline:"none",fontFamily:"inherit",color:"#1C1208",background:"white"}}/>
           <span style={{fontSize:"12px",color:"#A08060",fontFamily:"inherit"}}>→</span>
@@ -968,6 +1168,7 @@ export default function App() {
                             {it.useCustom&&<div><strong>Conversión:</strong> {"1 "+it.customUnit+" = "+it.equiv+" "+it.unitStd}</div>}
                             <div><strong>Sin IVA:</strong> {fmtMXN(it.sinIVA)+" · "}<strong>IVA:</strong> {fmtMXN(it.impuestos)}</div>
                             {it.notas&&<div><strong>Notas:</strong> {it.notas}</div>}
+                            {(()=>{ const p=profiles.find(x=>x.id===it.by); return p?<div><strong>Registró:</strong> <span style={{color:PCOLS[p.ci%PCOLS.length],fontWeight:"600"}}>{p.name}</span></div>:null; })()}
                           </div>
                         )}
                       </div>
@@ -978,17 +1179,106 @@ export default function App() {
             );
           })
         ))}
+
+        {viewMode==="gastos"&&(
+          visibleGastos.length===0?(
+            <div style={{textAlign:"center",padding:"50px 20px",color:"#A08060"}}>
+              <p style={{fontSize:"40px",margin:"0 0 12px"}}>💸</p>
+              <p style={{fontSize:"15px",fontWeight:"600",color:"#5A4A3A",margin:"0 0 6px",fontFamily:"inherit"}}>Sin gastos en este periodo</p>
+              <p style={{fontSize:"13px",margin:0,fontFamily:"inherit"}}>Usa "Agregar gasto" para registrar costos fijos</p>
+            </div>
+          ):(
+            <div>
+              <div style={{background:"#1A0A00",borderRadius:"12px",padding:"12px 16px",marginBottom:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <p style={{color:"#A08060",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px",fontFamily:"inherit"}}>Total gastos</p>
+                  <p style={{color:"#F5DFC0",fontSize:"13px",margin:0,fontFamily:"inherit"}}>{visibleGastos.length+" registro"+(visibleGastos.length!==1?"s":"")}</p>
+                </div>
+                <p style={{color:"#C4622D",fontSize:"20px",fontWeight:"700",margin:0,fontFamily:"inherit"}}>{fmtMXN(visibleGastos.reduce((s,g)=>s+g.monto,0))}</p>
+              </div>
+              {gastoDisplayItems.map((row,ri)=>row.type==="single"?(
+                <div key={row.data.id} style={{background:"white",borderRadius:"12px",border:delGastoId===row.data.id?"1.5px solid #FCA5A5":"1.5px solid #EAE0D5",marginBottom:"8px",padding:"11px 13px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"10px"}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:"flex",alignItems:"center",gap:"6px",marginBottom:"3px"}}>
+                        <span style={{fontSize:"15px",fontWeight:"600",color:"#1C1208",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontFamily:"inherit"}}>{row.data.concepto}</span>
+                        <span style={{fontSize:"11px",background:"#F5E8D8",color:"#8B5E3C",borderRadius:"4px",padding:"1px 6px",whiteSpace:"nowrap",fontFamily:"inherit"}}>{row.data.categoria}</span>
+                      </div>
+                      <div style={{fontSize:"12px",color:"#8A7B6A",fontFamily:"inherit"}}>
+                        {fmtD(row.data.fecha)}
+                        {row.data.notas&&<span>{" · "+row.data.notas}</span>}
+                        {(()=>{ const p=profiles.find(x=>x.id===row.data.by); return p?<span style={{color:PCOLS[p.ci%PCOLS.length],fontWeight:"600"}}>{" · "+p.name}</span>:null; })()}
+                      </div>
+                    </div>
+                    <div style={{textAlign:"right",flexShrink:0}}>
+                      <div style={{fontSize:"16px",fontWeight:"700",color:"#8B5E3C",marginBottom:"6px",fontFamily:"inherit"}}>{fmtMXN(row.data.monto)}</div>
+                      {isAdmin&&(
+                        <div style={{display:"flex",gap:"5px",justifyContent:"flex-end"}}>
+                          <button onClick={()=>openGasto(row.data)} style={{background:"#F5F0EB",border:"none",borderRadius:"6px",padding:"4px 10px",fontSize:"12px",color:"#5A4A3A",cursor:"pointer",fontFamily:"inherit"}}>Editar</button>
+                          {delGastoId===row.data.id?(<button onClick={()=>doDeleteGasto()} style={{background:"#E53E3E",border:"none",borderRadius:"6px",padding:"4px 10px",fontSize:"12px",color:"white",cursor:"pointer",fontFamily:"inherit"}}>Borrar</button>):(<button onClick={()=>setDelGastoId(row.data.id)} style={{background:"#F5F0EB",border:"none",borderRadius:"6px",padding:"4px 10px",fontSize:"12px",color:"#A08060",cursor:"pointer",fontFamily:"inherit"}}>✕</button>)}
+                        </div>
+                      )}
+                      {delGastoId===row.data.id&&<button onClick={()=>setDelGastoId(null)} style={{fontSize:"11px",color:"#A08060",background:"none",border:"none",cursor:"pointer",marginTop:"3px",fontFamily:"inherit"}}>Cancelar</button>}
+                    </div>
+                  </div>
+                </div>
+              ):(
+                <div key={row.grupoId} style={{background:"white",borderRadius:"12px",border:"1.5px solid #EAE0D5",marginBottom:"8px",overflow:"hidden"}}>
+                  <div style={{padding:"11px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setExpGrpGasto(p=>({...p,[row.grupoId]:!p[row.grupoId]}))}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:"flex",alignItems:"center",gap:"6px",marginBottom:"3px"}}>
+                        <span style={{fontSize:"15px",fontWeight:"600",color:"#1C1208",fontFamily:"inherit"}}>{row.label}</span>
+                        <span style={{fontSize:"11px",background:"#F5E8D8",color:"#8B5E3C",borderRadius:"4px",padding:"1px 6px",fontFamily:"inherit"}}>{row.cat}</span>
+                        <span style={{fontSize:"11px",background:"#EAE0D5",color:"#7A6B5A",borderRadius:"4px",padding:"1px 6px",fontFamily:"inherit"}}>{row.items.length+" empleados"}</span>
+                      </div>
+                      <div style={{fontSize:"12px",color:"#8A7B6A",fontFamily:"inherit"}}>
+                        {fmtD(row.fecha)}
+                        {(()=>{ const p=profiles.find(x=>x.id===row.by); return p?<span style={{color:PCOLS[p.ci%PCOLS.length],fontWeight:"600"}}>{" · "+p.name}</span>:null; })()}
+                        <span style={{marginLeft:"6px"}}>{expGrpGasto[row.grupoId]?"▲":"▼"}</span>
+                      </div>
+                    </div>
+                    <div style={{textAlign:"right",flexShrink:0}}>
+                      <div style={{fontSize:"16px",fontWeight:"700",color:"#8B5E3C",marginBottom:"6px",fontFamily:"inherit"}}>{fmtMXN(row.total)}</div>
+                      {isAdmin&&(
+                        <button onClick={e=>{e.stopPropagation();doDeleteGasto(row.grupoId);}} style={{background:"#F5F0EB",border:"none",borderRadius:"6px",padding:"4px 10px",fontSize:"12px",color:"#E53E3E",cursor:"pointer",fontFamily:"inherit"}}>✕ Grupo</button>
+                      )}
+                    </div>
+                  </div>
+                  {expGrpGasto[row.grupoId]&&(
+                    <div style={{borderTop:"1px solid #F0EBE3",padding:"8px 13px"}}>
+                      {row.items.map(emp=>(
+                        <div key={emp.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"0.5px solid #F5F0EB"}}>
+                          <div>
+                            <p style={{fontSize:"13px",fontWeight:"600",color:"#1C1208",margin:0,fontFamily:"inherit"}}>{emp.concepto}</p>
+                            {(emp.area||emp.notas)&&<p style={{fontSize:"11px",color:"#A08060",margin:0,fontFamily:"inherit"}}>{emp.area&&<span style={{background:"#EAE0D5",borderRadius:"4px",padding:"1px 5px",marginRight:"4px",fontWeight:"600"}}>{emp.area}</span>}{emp.notas}</p>}
+                          </div>
+                          <span style={{fontSize:"14px",fontWeight:"600",color:"#8B5E3C",fontFamily:"inherit"}}>{fmtMXN(emp.monto)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )
+        )}
       </div>
 
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"430px",paddingTop:"10px",paddingRight:"16px",paddingBottom:"calc(20px + env(safe-area-inset-bottom))",paddingLeft:"16px",background:"linear-gradient(to top,#FAF5EE 65%,rgba(250,245,238,0))"}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
-          <button onClick={()=>openSingle()} style={{background:"#C4622D",color:"white",border:"none",borderRadius:"12px",padding:"14px",fontSize:"14px",fontWeight:"600",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px",fontFamily:"inherit"}}>
-            <span style={{fontSize:"18px",fontWeight:"300"}}>+</span> Individual
+        {viewMode==="gastos"?(
+          <button onClick={()=>openGasto()} style={{width:"100%",background:"#8B5E3C",color:"white",border:"none",borderRadius:"12px",padding:"14px",fontSize:"14px",fontWeight:"600",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px",fontFamily:"inherit"}}>
+            <span style={{fontSize:"18px",fontWeight:"300"}}>+</span> Agregar gasto
           </button>
-          <button onClick={openGroup} style={{background:"white",color:"#C4622D",border:"2px solid #C4622D",borderRadius:"12px",padding:"14px",fontSize:"14px",fontWeight:"600",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px",fontFamily:"inherit"}}>
-            <span style={{fontSize:"18px",fontWeight:"300"}}>⊞</span> Grupal
-          </button>
-        </div>
+        ):(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
+            <button onClick={()=>openSingle()} style={{background:"#C4622D",color:"white",border:"none",borderRadius:"12px",padding:"14px",fontSize:"14px",fontWeight:"600",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px",fontFamily:"inherit"}}>
+              <span style={{fontSize:"18px",fontWeight:"300"}}>+</span> Individual
+            </button>
+            <button onClick={openGroup} style={{background:"white",color:"#C4622D",border:"2px solid #C4622D",borderRadius:"12px",padding:"14px",fontSize:"14px",fontWeight:"600",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px",fontFamily:"inherit"}}>
+              <span style={{fontSize:"18px",fontWeight:"300"}}>⊞</span> Grupal
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
