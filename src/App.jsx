@@ -1042,7 +1042,7 @@ export default function App() {
           <button onClick={()=>{setDateFrom(null);setDateTo(null);}} style={sPill(!dateFrom&&!dateTo,"#C4622D",{fontSize:"12px",padding:"5px 10px"})}>Todo</button>
           {[["Hoy",0],["Ayer",1],["Antier",2]].map(([lbl,off])=>{
             const d=new Date(); d.setDate(d.getDate()-off);
-            const ds=d.toISOString().split("T")[0];
+            const ds=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
             return <button key={lbl} onClick={()=>{setDateFrom(ds);setDateTo(ds);}} style={sPill(dateFrom===ds&&dateTo===ds,"#C4622D",{fontSize:"12px",padding:"5px 10px"})}>{lbl}</button>;
           })}
           <input type="date" value={dateFrom||""} onChange={e=>setDateFrom(e.target.value||null)}
@@ -1101,6 +1101,28 @@ export default function App() {
                   </div>
                 );
               })}
+              {visibleGastos.length>0&&(
+                <div style={{marginTop:"8px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px",paddingTop:"8px",borderTop:"1px solid #EAE0D5"}}>
+                    <span style={{fontSize:"12px",fontWeight:"600",color:"#8B5E3C",textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:"inherit"}}>Gastos Fijos</span>
+                    <span style={{fontSize:"12px",color:"#A08060",fontFamily:"inherit"}}>({visibleGastos.length})</span>
+                    <span style={{marginLeft:"auto",fontSize:"14px",fontWeight:"700",color:"#8B5E3C",fontFamily:"inherit"}}>{fmtMXN(visibleGastos.reduce((s,g)=>s+g.monto,0))}</span>
+                  </div>
+                  {(()=>{
+                    const byCat={};
+                    for(const g of visibleGastos){ if(!byCat[g.categoria]) byCat[g.categoria]=0; byCat[g.categoria]+=g.monto; }
+                    return Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([cat,total])=>(
+                      <div key={cat} style={{background:"white",borderRadius:"10px",border:"1.5px solid #EAE0D5",marginBottom:"6px",padding:"10px 13px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+                          <span style={{fontSize:"11px",background:"#F5E8D8",color:"#8B5E3C",borderRadius:"4px",padding:"1px 6px",fontFamily:"inherit"}}>{cat}</span>
+                          <span style={{fontSize:"12px",color:"#8A7B6A",fontFamily:"inherit"}}>{visibleGastos.filter(g=>g.categoria===cat).length+" registro"+(visibleGastos.filter(g=>g.categoria===cat).length!==1?"s":"")}</span>
+                        </div>
+                        <span style={{fontSize:"15px",fontWeight:"700",color:"#8B5E3C",fontFamily:"inherit"}}>{fmtMXN(total)}</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              )}
             </div>
           )
         )}
