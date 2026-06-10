@@ -1027,7 +1027,7 @@ export default function App() {
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1px",background:"#111",margin:"10px 0 0"}}>
           <div style={{background:"#161616",padding:"10px 20px"}}><p style={{color:"#666",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px",fontFamily:"inherit"}}>{(dateFrom||dateTo)?"Compras del periodo":"Compras totales"}</p><p style={{color:"#F5DFC0",fontSize:"22px",fontWeight:"600",margin:0,fontFamily:"inherit"}}>{visible.length}</p></div>
-          <div style={{background:"#161616",padding:"10px 20px"}}><p style={{color:"#666",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px",fontFamily:"inherit"}}>{(dateFrom||dateTo)?"Total del periodo":"Total acumulado"}</p><p style={{color:"#F5DFC0",fontSize:"22px",fontWeight:"600",margin:0,fontFamily:"inherit"}}>{visible.length>0?fmtMXN(visible.reduce((s,i)=>s+i.importeTotal,0)):"—"}</p></div>
+          <div style={{background:"#161616",padding:"10px 20px"}}><p style={{color:"#666",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px",fontFamily:"inherit"}}>{(dateFrom||dateTo)?"Total del periodo":"Total acumulado"}</p><p style={{color:"#F5DFC0",fontSize:"22px",fontWeight:"600",margin:0,fontFamily:"inherit"}}>{(visible.length>0||visibleGastos.length>0)?fmtMXN(visible.reduce((s,i)=>s+i.importeTotal,0)+visibleGastos.reduce((s,g)=>s+g.monto,0)):"—"}</p></div>
         </div>
       </div>
 
@@ -1074,14 +1074,24 @@ export default function App() {
             </div>
           ):(
             <div>
-              <div style={{background:"#1A0A00",borderRadius:"12px",padding:"12px 16px",marginBottom:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div>
-                  <p style={{color:"#A08060",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px",fontFamily:"inherit"}}>
-                    {(dateFrom||dateTo)?(dateFrom&&dateTo?fmtD(dateFrom)+" → "+fmtD(dateTo):dateFrom?("Desde "+fmtD(dateFrom)):("Hasta "+fmtD(dateTo))):"Todo el historial"}
-                  </p>
-                  <p style={{color:"#F5DFC0",fontSize:"13px",margin:0,fontFamily:"inherit"}}>{visible.length+" registros · "+resumen.length+" productos únicos"}</p>
+              <div style={{background:"#1A0A00",borderRadius:"12px",padding:"12px 16px",marginBottom:"16px"}}>
+                <p style={{color:"#A08060",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 8px",fontFamily:"inherit"}}>
+                  {(dateFrom||dateTo)?(dateFrom&&dateTo?fmtD(dateFrom)+" → "+fmtD(dateTo):dateFrom?("Desde "+fmtD(dateFrom)):("Hasta "+fmtD(dateTo))):"Todo el historial"}
+                </p>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}>
+                  <span style={{fontSize:"12px",color:"#A08060",fontFamily:"inherit"}}>{"Compras ("+visible.length+")"}</span>
+                  <span style={{fontSize:"16px",fontWeight:"700",color:"#C4622D",fontFamily:"inherit"}}>{fmtMXN(visible.reduce((s,i)=>s+i.importeTotal,0))}</span>
                 </div>
-                <p style={{color:"#C4622D",fontSize:"20px",fontWeight:"700",margin:0,fontFamily:"inherit"}}>{fmtMXN(visible.reduce((s,i)=>s+i.importeTotal,0))}</p>
+                {visibleGastos.length>0&&(
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}>
+                    <span style={{fontSize:"12px",color:"#A08060",fontFamily:"inherit"}}>{"Gastos Fijos ("+visibleGastos.length+")"}</span>
+                    <span style={{fontSize:"16px",fontWeight:"700",color:"#8B5E3C",fontFamily:"inherit"}}>{fmtMXN(visibleGastos.reduce((s,g)=>s+g.monto,0))}</span>
+                  </div>
+                )}
+                <div style={{borderTop:"1px solid #3D2610",paddingTop:"6px",marginTop:"2px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontSize:"12px",color:"#A08060",fontWeight:"600",fontFamily:"inherit"}}>Total</span>
+                  <span style={{fontSize:"20px",fontWeight:"700",color:"#F5DFC0",fontFamily:"inherit"}}>{fmtMXN(visible.reduce((s,i)=>s+i.importeTotal,0)+visibleGastos.reduce((s,g)=>s+g.monto,0))}</span>
+                </div>
               </div>
               {resumen.map(item=>{
                 const clr=alClr(item.al);
@@ -1134,7 +1144,15 @@ export default function App() {
               <p style={{fontSize:"13px",margin:0,fontFamily:"inherit"}}>{items.length===0?"Usa los botones de abajo para agregar":"Ajusta el rango de fechas o categoría"}</p>
             </div>
           ):(
-          Object.entries(byAl).map(([al,its])=>{
+          <div>
+            <div style={{background:"#1A0A00",borderRadius:"12px",padding:"12px 16px",marginBottom:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <p style={{color:"#A08060",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px",fontFamily:"inherit"}}>{(dateFrom||dateTo)?"Total compras del periodo":"Total compras"}</p>
+                <p style={{color:"#F5DFC0",fontSize:"13px",margin:0,fontFamily:"inherit"}}>{visible.length+" registro"+(visible.length!==1?"s":"")}</p>
+              </div>
+              <p style={{color:"#C4622D",fontSize:"20px",fontWeight:"700",margin:0,fontFamily:"inherit"}}>{fmtMXN(visible.reduce((s,i)=>s+i.importeTotal,0))}</p>
+            </div>
+            {Object.entries(byAl).map(([al,its])=>{
             const alTotal=its.reduce((s,i)=>s+i.importeTotal,0), clr=alClr(al);
             return (
               <div key={al} style={{marginBottom:"20px"}}>
@@ -1191,7 +1209,8 @@ export default function App() {
                 })}
               </div>
             );
-          })
+          })}
+          </div>
         ))}
 
         {viewMode==="gastos"&&(
