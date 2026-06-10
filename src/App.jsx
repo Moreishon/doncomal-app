@@ -1103,7 +1103,7 @@ export default function App() {
               })}
             </div>
           )
-        ):(
+        ):viewMode==="compras"?(
           visible.length===0?(
             <div style={{textAlign:"center",padding:"50px 20px",color:"#A08060"}}>
               <p style={{fontSize:"40px",margin:"0 0 12px"}}>🛒</p>
