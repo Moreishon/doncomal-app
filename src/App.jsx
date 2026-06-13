@@ -75,14 +75,21 @@ async function storageGet(key) {
   try {
     const r = await fetch(SUPA_URL+"/rest/v1/app_data?key=eq."+key+"&select=value", {headers:SUPA_HDR});
     const d = await r.json();
-    return d.length > 0 ? JSON.parse(d[0].value) : null;
-  } catch { return null; }
+    if(Array.isArray(d) && d.length > 0) {
+      try { localStorage.setItem("dc_bk_"+key, d[0].value); } catch {}
+      return JSON.parse(d[0].value);
+    }
+  } catch {}
+  try { const bk=localStorage.getItem("dc_bk_"+key); if(bk) return JSON.parse(bk); } catch {}
+  return null;
 }
 async function storageSet(key, val) {
+  const json = JSON.stringify(val);
+  try { localStorage.setItem("dc_bk_"+key, json); } catch {}
   try {
     await fetch(SUPA_URL+"/rest/v1/app_data", {
       method:"POST", headers:SUPA_HDR,
-      body:JSON.stringify({key, value:JSON.stringify(val), updated_at:new Date().toISOString()})
+      body:JSON.stringify({key, value:json, updated_at:new Date().toISOString()})
     });
   } catch {}
 }
@@ -365,7 +372,7 @@ export default function App() {
   const [expGrpGasto,setExpGrpGasto] = useState({});
 
   // ── Load from storage ──
-  const _ready = React.useRef(false);
+  const _ready = useRef(false);
   useEffect(()=>{
     (async()=>{
       const si=await storageGet("dc_items");     if(si) setItems(si);
@@ -469,6 +476,35 @@ export default function App() {
     setView("list"); setEditId(null);
   };
   const doDelete = () => { setItems(prev=>prev.filter(i=>i.id!==delId)); setDelId(null); };
+
+  // ── Backup & Restore ──
+  const downloadBackup = () => {
+    const data = {version:1, fecha:today(), dc_items:items, dc_settings:{cats,als},
+      dc_catalogo:catalogo, dc_profiles:profiles, dc_gastos:gastos, dc_gasto_cats:gastoCats};
+    const blob = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href=url; a.download="DonComal_respaldo_"+today()+".json"; a.click();
+    URL.revokeObjectURL(url);
+  };
+  const restoreBackup = async (e) => {
+    const file = e.target.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const b = JSON.parse(ev.target.result);
+        if(b.dc_items)      { setItems(b.dc_items);                await storageSet("dc_items",b.dc_items); }
+        if(b.dc_settings)   { if(b.dc_settings.cats) setCats(b.dc_settings.cats); if(b.dc_settings.als) setAls(b.dc_settings.als); await storageSet("dc_settings",b.dc_settings); }
+        if(b.dc_catalogo)   { setCatalogo(b.dc_catalogo);          await storageSet("dc_catalogo",b.dc_catalogo); }
+        if(b.dc_profiles)   { setProfiles(b.dc_profiles);          await storageSet("dc_profiles",b.dc_profiles); }
+        if(b.dc_gastos)     { setGastos(b.dc_gastos);              await storageSet("dc_gastos",b.dc_gastos); }
+        if(b.dc_gasto_cats) { setGastoCats(b.dc_gasto_cats);       await storageSet("dc_gasto_cats",b.dc_gasto_cats); }
+        alert("✓ Respaldo restaurado correctamente");
+      } catch { alert("Error al leer el archivo. Asegúrate de que sea un respaldo válido de Don Comal."); }
+    };
+    reader.readAsText(file);
+    e.target.value="";
+  };
 
   // ── Gastos fijos ──
   const blankGastoF  = () => ({fecha:today(),concepto:"",categoria:gastoCats[0]||GASTO_CATS_DEF[0],monto:"",notas:"",esNomina:false});
@@ -576,6 +612,27 @@ export default function App() {
   },[catalogo,catSearch]);
 
   const catByAl = useMemo(()=>{ const g={}; for(const i of catFiltered){if(!g[i.almacen])g[i.almacen]=[];g[i.almacen].push(i);} return g; },[catFiltered]);
+
+  // ══════════════════════════════════════════
+  // LOADING SCREEN
+  // ══════════════════════════════════════════
+  if(!loaded) return (
+    <div style={{fontFamily:"inherit",background:"#0A0A0A",minHeight:"100vh",maxWidth:"430px",margin:"0 auto",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",paddingBottom:"60px"}}>
+      <style>{FONT_CSS+`
+        @keyframes dcPulse {
+          0%,60%,100%{opacity:.2;transform:scale(.7)}
+          30%{opacity:1;transform:scale(1)}
+        }
+      `}</style>
+      <img src={LOGO} alt="Don Comal" style={{width:"200px",marginBottom:"40px",mixBlendMode:"screen"}}/>
+      <div style={{display:"flex",gap:"10px",alignItems:"center"}}>
+        {[0,1,2].map(i=>(
+          <div key={i} style={{width:"9px",height:"9px",borderRadius:"50%",background:"#C4622D",
+            animation:`dcPulse 1.2s ${i*0.18}s ease-in-out infinite`}}/>
+        ))}
+      </div>
+    </div>
+  );
 
   // ══════════════════════════════════════════
   // PROFILE SELECT
@@ -754,11 +811,28 @@ export default function App() {
         <div style={HDR_STYLE}><button onClick={()=>setView("list")} style={BACK_BTN}>←</button><span style={HDR_TITLE}>Configuración</span></div>
         <div style={{padding:"16px"}}>
           <div style={{display:"flex",gap:"8px",marginBottom:"20px",overflowX:"auto",paddingBottom:"4px"}}>
-            {["almacenes","categorias","gastos","perfiles"].map(t=>(<button key={t} onClick={()=>setStab(t)} style={sPill(stab===t,"#C4622D",{fontSize:"13px"})}>{t==="almacenes"?"Almacenes":t==="categorias"?"Categorías de Compras":t==="gastos"?"Gastos Fijos":"Perfiles"}</button>))}
+            {["almacenes","categorias","gastos","perfiles","respaldo"].map(t=>(<button key={t} onClick={()=>setStab(t)} style={sPill(stab===t,"#C4622D",{fontSize:"13px"})}>{t==="almacenes"?"Almacenes":t==="categorias"?"Categorías de Compras":t==="gastos"?"Gastos Fijos":t==="respaldo"?"Respaldo":"Perfiles"}</button>))}
           </div>
           {stab==="almacenes"&&(<div style={sCard({padding:"16px"})}><label style={sLbl("12px")}>Almacenes activos</label><ListMgr list={als} newVal={newIn} onNewVal={setNewIn} onAdd={()=>addToList(als,setAls)} onRemove={(v)=>remFromList(als,setAls,v)}/></div>)}
           {stab==="categorias"&&(<div style={sCard({padding:"16px"})}><label style={sLbl("12px")}>Categorías de productos</label><ListMgr list={cats} newVal={newIn} onNewVal={setNewIn} onAdd={()=>addToList(cats,setCats)} onRemove={(v)=>remFromList(cats,setCats,v)}/></div>)}
           {stab==="gastos"&&(<div style={sCard({padding:"16px"})}><label style={sLbl("12px")}>Categorías de gastos fijos</label><ListMgr list={gastoCats} newVal={newIn} onNewVal={setNewIn} onAdd={()=>addToList(gastoCats,setGastoCats)} onRemove={(v)=>remFromList(gastoCats,setGastoCats,v)}/></div>)}
+          {stab==="respaldo"&&(
+            <div style={sCard({padding:"20px"})}>
+              <p style={{fontSize:"14px",fontWeight:"600",color:"#1C1208",margin:"0 0 6px",fontFamily:"inherit"}}>Respaldo de datos</p>
+              <p style={{fontSize:"13px",color:"#7A6B5A",margin:"0 0 20px",lineHeight:"1.5",fontFamily:"inherit"}}>Descarga una copia de todos tus registros antes de actualizar la app. Si algo sale mal, puedes restaurar desde ese archivo.</p>
+              <button onClick={downloadBackup} style={{width:"100%",background:"#2D6633",color:"white",border:"none",borderRadius:"12px",padding:"14px",fontSize:"15px",fontWeight:"600",cursor:"pointer",marginBottom:"12px",fontFamily:"inherit"}}>
+                ↓ Descargar respaldo (.json)
+              </button>
+              <p style={{fontSize:"12px",color:"#A08060",textAlign:"center",margin:"0 0 20px",fontFamily:"inherit"}}>{"Incluye: "+items.length+" compras · "+gastos.length+" gastos · "+catalogo.length+" productos en catálogo"}</p>
+              <div style={{borderTop:"1px solid #EAE0D5",paddingTop:"16px"}}>
+                <p style={{fontSize:"13px",color:"#7A6B5A",margin:"0 0 10px",fontFamily:"inherit"}}>Restaurar desde un archivo de respaldo:</p>
+                <label style={{display:"block",width:"100%",background:"white",color:"#C4622D",border:"2px solid #C4622D",borderRadius:"12px",padding:"13px",fontSize:"15px",fontWeight:"600",cursor:"pointer",textAlign:"center",fontFamily:"inherit",boxSizing:"border-box"}}>
+                  ↑ Seleccionar archivo .json
+                  <input type="file" accept=".json" onChange={restoreBackup} style={{display:"none"}}/>
+                </label>
+              </div>
+            </div>
+          )}
           {stab==="perfiles"&&(
             <div>
               <div style={sCard({padding:"16px",marginBottom:"16px"})}>
