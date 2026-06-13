@@ -1143,7 +1143,7 @@ export default function App() {
 
       <div style={{padding:"0 16px"}}>
         {viewMode==="resumen"&&(
-          resumen.length===0?(
+          (resumen.length===0&&visibleGastos.length===0)?(
             <div style={{textAlign:"center",padding:"50px 20px",color:"#A08060"}}>
               <p style={{fontSize:"40px",margin:"0 0 12px"}}>📊</p>
               <p style={{fontSize:"15px",fontWeight:"600",color:"#5A4A3A",margin:"0 0 6px",fontFamily:"inherit"}}>Sin datos para este periodo</p>
