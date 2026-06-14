@@ -337,6 +337,9 @@ export default function App() {
   const [delId,setDelId]         = useState(null);
   const [grpHdr,setGrpHdr]       = useState(null);
   const [grpItems,setGrpItems]   = useState([]);
+  const [grpEditIdx,setGrpEditIdx] = useState(null);
+  const [proveedores,setProveedores]= useState([]);
+  const [provSuggOpen,setProvSuggOpen]= useState(false);
   const [grpPhase,setGrpPhase]   = useState(1);
   const [grpF,setGrpF]           = useState(null);
   const [grpErrs,setGrpErrs]     = useState({});
@@ -381,6 +384,7 @@ export default function App() {
       const sp=await storageGet("dc_profiles");  if(sp) setProfiles(sp);
       const sg=await storageGet("dc_gastos");    if(sg) setGastos(sg);
       const sgc=await storageGet("dc_gasto_cats"); if(sgc) setGastoCats(sgc);
+      const spv=await storageGet("dc_proveedores");  if(spv) setProveedores(spv);
       _ready.current = true;
       setLoaded(true);
     })();
@@ -392,6 +396,7 @@ export default function App() {
   useEffect(()=>{ if(!_ready.current) return; storageSet("dc_profiles",profiles); },[profiles]);
   useEffect(()=>{ if(!_ready.current) return; storageSet("dc_gastos",gastos); },[gastos]);
   useEffect(()=>{ if(!_ready.current) return; storageSet("dc_gasto_cats",gastoCats); },[gastoCats]);
+  useEffect(()=>{ if(!_ready.current) return; storageSet("dc_proveedores",proveedores); },[proveedores]);
 
   const profile    = profiles.find(p=>p.id===curId);
   const isAdmin    = profile?.role==="admin";
@@ -561,10 +566,16 @@ export default function App() {
 
   // ── Group purchase ──
   const openGroup = () => { setGrpHdr({fecha:today(),prov:"",al:als[0]||"Almacén 1"}); setGrpItems([]); setGrpPhase(1); setGrpF(null); setGrpErrs({}); setView("form_group"); };
+  const editGrpItem = (it) => {
+    setGrpEditIdx(it.id);
+    setGrpF({cat:it.cat,prod:it.prod,useCustom:it.useCustom||false,unit:it.unitStd,customUnit:it.customUnit||"",qty:String(it.qty),equiv:it.equiv?String(it.equiv):"",price:String(it.price),iva:it.iva,notas:it.notas||"",stdUnit:it.unitStd});
+  };
   const addGrpItem = () => {
     if(!validate(grpF,setGrpErrs)) return;
-    const c=calcItem(grpF);
-    setGrpItems(prev=>[...prev,{id:Date.now()+prev.length,cat:grpF.cat,prod:grpF.prod.trim(),useCustom:grpF.useCustom,unit:grpF.useCustom?grpF.customUnit:grpF.unit,customUnit:grpF.customUnit,qty:parseFloat(grpF.qty),equiv:grpF.useCustom?parseFloat(grpF.equiv):1,price:parseFloat(grpF.price),iva:grpF.iva,notas:grpF.notas.trim(),unitStd:c.unitStd,cantStd:c.cantStd,priceStd:c.priceStd,importeTotal:c.importeTotal,sinIVA:c.sinIVA,impuestos:c.impuestos}]);
+    const cc=calcItem(grpF);
+    const entry={id:grpEditIdx!==null?grpEditIdx:Date.now()+grpItems.length,cat:grpF.cat,prod:grpF.prod.trim(),useCustom:grpF.useCustom,unit:grpF.useCustom?grpF.customUnit:grpF.unit,customUnit:grpF.customUnit,qty:parseFloat(grpF.qty),equiv:grpF.useCustom?parseFloat(grpF.equiv):1,price:parseFloat(grpF.price),iva:grpF.iva,notas:grpF.notas.trim(),unitStd:cc.unitStd,cantStd:cc.cantStd,priceStd:cc.priceStd,importeTotal:cc.importeTotal,sinIVA:cc.sinIVA,impuestos:cc.impuestos};
+    if(grpEditIdx!==null){ setGrpItems(prev=>prev.map(it=>it.id===grpEditIdx?entry:it)); setGrpEditIdx(null); }
+    else { setGrpItems(prev=>[...prev,entry]); }
     setGrpF(blankGF(cats)); setGrpErrs({});
   };
   const saveGroup = () => {
@@ -811,9 +822,10 @@ export default function App() {
         <div style={HDR_STYLE}><button onClick={()=>setView("list")} style={BACK_BTN}>←</button><span style={HDR_TITLE}>Configuración</span></div>
         <div style={{padding:"16px"}}>
           <div style={{display:"flex",gap:"8px",marginBottom:"20px",overflowX:"auto",paddingBottom:"4px"}}>
-            {["almacenes","categorias","gastos","perfiles","respaldo"].map(t=>(<button key={t} onClick={()=>setStab(t)} style={sPill(stab===t,"#C4622D",{fontSize:"13px"})}>{t==="almacenes"?"Almacenes":t==="categorias"?"Categorías de Compras":t==="gastos"?"Gastos Fijos":t==="respaldo"?"Respaldo":"Perfiles"}</button>))}
+            {["almacenes","proveedores","categorias","gastos","perfiles","respaldo"].map(t=>(<button key={t} onClick={()=>setStab(t)} style={sPill(stab===t,"#C4622D",{fontSize:"13px"})}>{t==="almacenes"?"Almacenes":t==="proveedores"?"Proveedores":t==="categorias"?"Categorías de Compras":t==="gastos"?"Gastos Fijos":t==="respaldo"?"Respaldo":"Perfiles"}</button>))}
           </div>
           {stab==="almacenes"&&(<div style={sCard({padding:"16px"})}><label style={sLbl("12px")}>Almacenes activos</label><ListMgr list={als} newVal={newIn} onNewVal={setNewIn} onAdd={()=>addToList(als,setAls)} onRemove={(v)=>remFromList(als,setAls,v)}/></div>)}
+          {stab==="proveedores"&&(<div style={sCard({padding:"16px"})}><label style={sLbl("12px")}>Proveedores frecuentes</label><p style={{fontSize:"12px",color:"#A08060",margin:"0 0 12px",fontFamily:"inherit"}}>Agrégalos aquí para que aparezcan como sugerencias al registrar una compra.</p><ListMgr list={proveedores.length>0?proveedores:[""]} newVal={newIn} onNewVal={setNewIn} onAdd={()=>{const v=newIn.trim();if(v&&!proveedores.includes(v)){setProveedores(p=>[...p,v]);setNewIn("");}}} onRemove={(v)=>setProveedores(p=>p.filter(x=>x!==v))}/></div>)}
           {stab==="categorias"&&(<div style={sCard({padding:"16px"})}><label style={sLbl("12px")}>Categorías de productos</label><ListMgr list={cats} newVal={newIn} onNewVal={setNewIn} onAdd={()=>addToList(cats,setCats)} onRemove={(v)=>remFromList(cats,setCats,v)}/></div>)}
           {stab==="gastos"&&(<div style={sCard({padding:"16px"})}><label style={sLbl("12px")}>Categorías de gastos fijos</label><ListMgr list={gastoCats} newVal={newIn} onNewVal={setNewIn} onAdd={()=>addToList(gastoCats,setGastoCats)} onRemove={(v)=>remFromList(gastoCats,setGastoCats,v)}/></div>)}
           {stab==="respaldo"&&(
@@ -909,7 +921,19 @@ export default function App() {
       <div style={{padding:"16px"}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"14px"}}>
           <div><label style={sLbl()}>Fecha</label><input type="date" value={form.fecha} onChange={chg("fecha")} style={sInp(false)}/></div>
-          <div><label style={sLbl()}>Proveedor</label><input type="text" value={form.prov} onChange={chg("prov")} placeholder="Opcional" style={sInp(false)}/></div>
+          <div>
+            <label style={sLbl()}>Proveedor</label>
+            <div style={{position:"relative"}}>
+              <input type="text" value={form.prov} onChange={e=>{chg("prov")(e);setProvSuggOpen(true);}} onFocus={()=>setProvSuggOpen(true)} onBlur={()=>setTimeout(()=>setProvSuggOpen(false),150)} placeholder="Opcional" style={sInp(false)}/>
+              {provSuggOpen&&form.prov&&proveedores.filter(p=>norm(p).includes(norm(form.prov))).length>0&&(
+                <div style={{position:"absolute",top:"calc(100% + 2px)",left:0,right:0,background:"white",border:"1px solid #E0D5C8",borderRadius:"8px",zIndex:30,maxHeight:"140px",overflowY:"auto",boxShadow:"0 4px 12px rgba(0,0,0,0.12)"}}>
+                  {proveedores.filter(p=>norm(p).includes(norm(form.prov))).map(p=>(
+                    <div key={p} onMouseDown={()=>{setF("prov",p);setProvSuggOpen(false);}} style={{padding:"10px 12px",cursor:"pointer",fontSize:"14px",color:"#1C1208",fontFamily:"inherit",borderBottom:"1px solid #F5F0EB"}}>{p}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
         <div style={{marginBottom:"14px"}}>
           <label style={sLbl("8px")}>Almacén</label>
@@ -936,7 +960,19 @@ export default function App() {
           <p style={{fontSize:"14px",color:"#7A6B5A",marginBottom:"20px",lineHeight:1.5,fontFamily:"inherit"}}>Captura el proveedor una sola vez y luego agrega todos los productos.</p>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"14px"}}>
             <div><label style={sLbl()}>Fecha</label><input type="date" value={grpHdr.fecha} onChange={e=>setGrpHdr(p=>({...p,fecha:e.target.value}))} style={sInp(false)}/></div>
-            <div><label style={sLbl()}>Proveedor</label><input type="text" value={grpHdr.prov} onChange={e=>setGrpHdr(p=>({...p,prov:e.target.value}))} placeholder="Ej: Mercado Jamaica" style={sInp(false)}/></div>
+            <div>
+              <label style={sLbl()}>Proveedor</label>
+              <div style={{position:"relative"}}>
+                <input type="text" value={grpHdr.prov} onChange={e=>{setGrpHdr(p=>({...p,prov:e.target.value}));setProvSuggOpen(true);}} onFocus={()=>setProvSuggOpen(true)} onBlur={()=>setTimeout(()=>setProvSuggOpen(false),150)} placeholder="Ej: Mercado Jamaica" style={sInp(false)}/>
+                {provSuggOpen&&grpHdr.prov&&proveedores.filter(p=>norm(p).includes(norm(grpHdr.prov))).length>0&&(
+                  <div style={{position:"absolute",top:"calc(100% + 2px)",left:0,right:0,background:"white",border:"1px solid #E0D5C8",borderRadius:"8px",zIndex:30,maxHeight:"140px",overflowY:"auto",boxShadow:"0 4px 12px rgba(0,0,0,0.12)"}}>
+                    {proveedores.filter(p=>norm(p).includes(norm(grpHdr.prov))).map(p=>(
+                      <div key={p} onMouseDown={()=>{setGrpHdr(prev=>({...prev,prov:p}));setProvSuggOpen(false);}} style={{padding:"10px 12px",cursor:"pointer",fontSize:"14px",color:"#1C1208",fontFamily:"inherit",borderBottom:"1px solid #F5F0EB"}}>{p}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
           <div style={{marginBottom:"24px"}}>
             <label style={sLbl("8px")}>Almacén</label>
@@ -954,7 +990,10 @@ export default function App() {
               {grpItems.map((it,idx)=>(
                 <div key={it.id} style={{background:"white",borderRadius:"10px",border:"1px solid #EAE0D5",padding:"10px 12px",marginBottom:"6px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div><p style={{fontSize:"14px",fontWeight:"600",color:"#1C1208",margin:0,fontFamily:"inherit"}}>{it.prod}</p><p style={{fontSize:"12px",color:"#8A7B6A",margin:0,fontFamily:"inherit"}}>{it.qty+" "+it.unit+" · "+fmtMXN(it.importeTotal)}</p></div>
-                  <button onClick={()=>setGrpItems(p=>p.filter((_,i)=>i!==idx))} style={{background:"none",border:"none",color:"#E53E3E",cursor:"pointer",fontSize:"18px",fontFamily:"inherit"}}>×</button>
+                  <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
+                    <button onClick={()=>editGrpItem(it)} style={{background:"#F5F0EB",border:"none",borderRadius:"6px",padding:"4px 10px",fontSize:"12px",color:"#5A4A3A",cursor:"pointer",fontFamily:"inherit"}}>✏️</button>
+                    <button onClick={()=>{setGrpItems(p=>p.filter((_,i)=>i!==idx));if(grpEditIdx===it.id){setGrpEditIdx(null);setGrpF(blankGF(cats));}}} style={{background:"none",border:"none",color:"#E53E3E",cursor:"pointer",fontSize:"18px",fontFamily:"inherit"}}>×</button>
+                  </div>
                 </div>
               ))}
               <div style={{background:"#F0EBE3",borderRadius:"8px",padding:"8px 12px",display:"flex",justifyContent:"space-between",marginBottom:"16px"}}>
@@ -967,7 +1006,10 @@ export default function App() {
             <label style={sLbl("12px")}>Agregar producto</label>
             {grpF&&<ItemFields f={grpF} chgFn={chgG} setFn={setGF} e={grpErrs} cats={cats} als={als} catalogo={catalogo}
               onCatalogSelect={(item)=>setGrpF(p=>({...p,prod:item.nombre,cat:item.categoria,useCustom:item.usarUnidadCompra||false,unit:item.unidad,customUnit:item.usarUnidadCompra?item.unidadCompra:"",equiv:item.usarUnidadCompra?String(item.piezasPorUnidad):"",stdUnit:item.unidad}))}/>}
-            <button onClick={addGrpItem} style={{width:"100%",background:"white",color:"#C4622D",border:"2px solid #C4622D",borderRadius:"10px",padding:"12px",fontSize:"14px",fontWeight:"600",cursor:"pointer",fontFamily:"inherit"}}>+ Agregar producto</button>
+            {grpEditIdx!==null&&(
+              <button onClick={()=>{setGrpEditIdx(null);setGrpF(blankGF(cats));}} style={{width:"100%",background:"none",border:"none",color:"#A08060",fontSize:"13px",cursor:"pointer",marginBottom:"6px",fontFamily:"inherit"}}>✕ Cancelar edición</button>
+            )}
+            <button onClick={addGrpItem} style={{width:"100%",background:"white",color:"#C4622D",border:"2px solid #C4622D",borderRadius:"10px",padding:"12px",fontSize:"14px",fontWeight:"600",cursor:"pointer",fontFamily:"inherit"}}>{grpEditIdx!==null?"✓ Actualizar producto":"+ Agregar producto"}</button>
           </div>
           {grpItems.length>0&&(<button onClick={saveGroup} style={SAVE_BTN}>{"Guardar compra grupal ("+grpItems.length+" productos)"}</button>)}
         </div>
@@ -1103,15 +1145,15 @@ export default function App() {
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1px",background:"#111",margin:"10px 0 0"}}>
           <div style={{background:"#161616",padding:"10px 20px"}}><p style={{color:"#666",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px",fontFamily:"inherit"}}>{(dateFrom||dateTo)?"Compras del periodo":"Compras totales"}</p><p style={{color:"#F5DFC0",fontSize:"22px",fontWeight:"600",margin:0,fontFamily:"inherit"}}>{visible.length}</p></div>
-          <div style={{background:"#161616",padding:"10px 20px"}}><p style={{color:"#666",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px",fontFamily:"inherit"}}>{(dateFrom||dateTo)?"Total del periodo":"Total acumulado"}</p><p style={{color:"#F5DFC0",fontSize:"22px",fontWeight:"600",margin:0,fontFamily:"inherit"}}>{(visible.length>0||visibleGastos.length>0)?fmtMXN(visible.reduce((s,i)=>s+i.importeTotal,0)+visibleGastos.reduce((s,g)=>s+g.monto,0)):"—"}</p></div>
+          <div style={{background:"#161616",padding:"10px 20px"}}><p style={{color:"#666",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px",fontFamily:"inherit"}}>{(dateFrom||dateTo)?"Total del periodo":"Total acumulado"}</p><p style={{color:"#F5DFC0",fontSize:"22px",fontWeight:"600",margin:0,fontFamily:"inherit"}}>{(visible.length>0||visibleGastos.length>0)?fmtMXN(visible.reduce((s,i)=>s+i.importeTotal,0)+(isAdmin?visibleGastos.reduce((s,g)=>s+g.monto,0):0)):"—"}</p></div>
         </div>
       </div>
 
       <div style={{padding:"10px 16px 8px"}}>
         <div style={{display:"flex",gap:"8px",marginBottom:"10px"}}>
-          <button onClick={()=>setViewMode("resumen")} style={sPill(viewMode==="resumen","#C4622D",{fontSize:"13px"})}>Resumen</button>
+          <button onClick={()=>{if(!isAdmin&&viewMode==="gastos")setViewMode("resumen");setViewMode("resumen")}} style={sPill(viewMode==="resumen","#C4622D",{fontSize:"13px"})}>Resumen</button>
           <button onClick={()=>setViewMode("compras")} style={sPill(viewMode==="compras","#C4622D",{fontSize:"13px"})}>Compras</button>
-          <button onClick={()=>setViewMode("gastos")} style={sPill(viewMode==="gastos","#8B5E3C",{fontSize:"13px"})}>Gastos Fijos</button>
+          {isAdmin&&<button onClick={()=>setViewMode("gastos")} style={sPill(viewMode==="gastos","#8B5E3C",{fontSize:"13px"})}>Gastos Fijos</button>}
         </div>
         <div style={{display:"flex",gap:"6px",alignItems:"center",flexWrap:"wrap",marginBottom:"6px"}}>
           <span style={{fontSize:"11px",color:"#A08060",fontWeight:"600",fontFamily:"inherit"}}>PERIODO:</span>
@@ -1143,7 +1185,7 @@ export default function App() {
 
       <div style={{padding:"0 16px"}}>
         {viewMode==="resumen"&&(
-          (resumen.length===0&&visibleGastos.length===0)?(
+          (resumen.length===0&&(!isAdmin||visibleGastos.length===0))?(
             <div style={{textAlign:"center",padding:"50px 20px",color:"#A08060"}}>
               <p style={{fontSize:"40px",margin:"0 0 12px"}}>📊</p>
               <p style={{fontSize:"15px",fontWeight:"600",color:"#5A4A3A",margin:"0 0 6px",fontFamily:"inherit"}}>Sin datos para este periodo</p>
@@ -1158,7 +1200,7 @@ export default function App() {
                   <span style={{fontSize:"12px",color:"#A08060",fontFamily:"inherit"}}>{"Compras ("+visible.length+")"}</span>
                   <span style={{fontSize:"16px",fontWeight:"700",color:"#C4622D",fontFamily:"inherit"}}>{fmtMXN(visible.reduce((s,i)=>s+i.importeTotal,0))}</span>
                 </div>
-                {visibleGastos.length>0&&(
+                {isAdmin&&visibleGastos.length>0&&(
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}>
                     <span style={{fontSize:"12px",color:"#A08060",fontFamily:"inherit"}}>{"Gastos Fijos ("+visibleGastos.length+")"}</span>
                     <span style={{fontSize:"16px",fontWeight:"700",color:"#8B5E3C",fontFamily:"inherit"}}>{fmtMXN(visibleGastos.reduce((s,g)=>s+g.monto,0))}</span>
@@ -1166,7 +1208,7 @@ export default function App() {
                 )}
                 <div style={{borderTop:"1px solid #3D2610",paddingTop:"6px",marginTop:"2px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <span style={{fontSize:"12px",color:"#A08060",fontWeight:"600",fontFamily:"inherit"}}>Total</span>
-                  <span style={{fontSize:"20px",fontWeight:"700",color:"#F5DFC0",fontFamily:"inherit"}}>{fmtMXN(visible.reduce((s,i)=>s+i.importeTotal,0)+visibleGastos.reduce((s,g)=>s+g.monto,0))}</span>
+                  <span style={{fontSize:"20px",fontWeight:"700",color:"#F5DFC0",fontFamily:"inherit"}}>{fmtMXN(visible.reduce((s,i)=>s+i.importeTotal,0)+(isAdmin?visibleGastos.reduce((s,g)=>s+g.monto,0):0))}</span>
                 </div>
               </div>
               {resumen.map(item=>{
@@ -1374,7 +1416,7 @@ export default function App() {
       </div>
 
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"430px",paddingTop:"10px",paddingRight:"16px",paddingBottom:"calc(20px + env(safe-area-inset-bottom))",paddingLeft:"16px",background:"linear-gradient(to top,#FAF5EE 65%,rgba(250,245,238,0))"}}>
-        {viewMode==="gastos"?(
+        {viewMode==="gastos"&&isAdmin?(
           <button onClick={()=>openGasto()} style={{width:"100%",background:"#8B5E3C",color:"white",border:"none",borderRadius:"12px",padding:"14px",fontSize:"14px",fontWeight:"600",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px",fontFamily:"inherit"}}>
             <span style={{fontSize:"18px",fontWeight:"300"}}>+</span> Agregar gasto
           </button>
