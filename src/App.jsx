@@ -903,9 +903,9 @@ export default function App() {
   // CATÁLOGO
   // ══════════════════════════════════════════
   if(view==="catalogo") return (
-    <div style={{fontFamily:"inherit",background:"#FAF5EE",minHeight:"100vh",maxWidth:"430px",margin:"0 auto",paddingBottom:"32px"}}>
+    <div style={{fontFamily:"inherit",background:"#FAF5EE",minHeight:"100vh",maxWidth:isMobile?"430px":"100%",margin:"0 auto",paddingBottom:"32px"}}>
       <style>{FONT_CSS}</style>
-      <div style={{background:"#0A0A0A",paddingTop:"calc(16px + env(safe-area-inset-top))",paddingRight:"20px",paddingBottom:"16px",paddingLeft:"20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
+      <div style={{background:"#0A0A0A",paddingTop:"calc(16px + env(safe-area-inset-top))",paddingRight:"20px",paddingBottom:"16px",paddingLeft:"20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10,maxWidth:isMobile?"100%":"1200px",marginLeft:"auto",marginRight:"auto"}}>
         <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
           <button onClick={()=>{setView("list");setCatFormVis(false);setCatSearch("");}} style={BACK_BTN}>←</button>
           <span style={HDR_TITLE}>Catálogo</span>
@@ -919,7 +919,7 @@ export default function App() {
       </div>
 
       {catFormVis&&catForm&&(
-        <div style={{background:"white",margin:"12px 16px",borderRadius:"12px",border:"1.5px solid #EAE0D5",padding:"16px"}}>
+        <div style={{background:"white",margin:isMobile?"12px 16px":"12px auto",maxWidth:isMobile?"100%":"1200px",borderRadius:"12px",border:"1.5px solid #EAE0D5",padding:"16px"}}>
           <p style={{fontWeight:"600",color:"#1C1208",margin:"0 0 14px",fontSize:"15px",fontFamily:"inherit"}}>{catEditId?"Editar producto":"Nuevo producto"}</p>
           <div style={{marginBottom:"12px"}}>
             <label style={sLbl()}>Nombre del producto *</label>
@@ -979,7 +979,7 @@ export default function App() {
         </div>
       )}
 
-      <div style={{padding:"12px 16px 0"}}>
+      <div style={{padding:"12px 16px 0",maxWidth:isMobile?"100%":"1200px",margin:"0 auto"}}>
         <div style={{position:"relative",marginBottom:"12px"}}>
           <input type="text" value={catSearch} onChange={e=>setCatSearch(e.target.value)} placeholder="Buscar en el catálogo..." style={{width:"100%",background:"white",border:"1.5px solid #E0D5C8",borderRadius:"10px",padding:"11px 14px 11px 38px",fontSize:"15px",color:"#1C1208",boxSizing:"border-box",outline:"none",minHeight:"46px",fontFamily:"inherit"}}/>
           <span style={{position:"absolute",left:"12px",top:"50%",transform:"translateY(-50%)",color:"#A08060",fontSize:"16px",pointerEvents:"none"}}>⌕</span>
@@ -1033,10 +1033,10 @@ export default function App() {
   if(view==="settings") {
 
     return (
-      <div style={{fontFamily:"inherit",background:"#FAF5EE",minHeight:"100vh",maxWidth:"430px",margin:"0 auto",paddingBottom:"20px"}}>
+      <div style={{fontFamily:"inherit",background:"#FAF5EE",minHeight:"100vh",maxWidth:isMobile?"430px":"100%",margin:"0 auto",paddingBottom:"20px"}}>
         <style>{FONT_CSS}</style>
         <div style={HDR_STYLE}><button onClick={()=>setView("list")} style={BACK_BTN}>←</button><span style={HDR_TITLE}>Configuración</span></div>
-        <div style={{padding:"16px"}}>
+        <div style={{padding:"16px",maxWidth:isMobile?"100%":"750px",margin:"0 auto"}}>
           <div style={{display:"flex",gap:"8px",marginBottom:"20px",overflowX:"auto",paddingBottom:"4px"}}>
             {["almacenes","proveedores","categorias","gastos","perfiles","respaldo"].map(t=>(<button key={t} onClick={()=>setStab(t)} style={sPill(stab===t,"#C4622D",{fontSize:"13px"})}>{t==="almacenes"?"Almacenes":t==="proveedores"?"Proveedores":t==="categorias"?"Categorías de Compras":t==="gastos"?"Gastos Fijos":t==="respaldo"?"Respaldo":"Perfiles"}</button>))}
           </div>
