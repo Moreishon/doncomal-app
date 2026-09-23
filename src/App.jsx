@@ -80,7 +80,6 @@ async function storageGet(key) {
       return JSON.parse(d[0].value);
     }
   } catch {}
-  // Fallback: localStorage mirror
   try { const bk=localStorage.getItem("dc_bk_"+key); if(bk) return JSON.parse(bk); } catch {}
   return null;
 }
@@ -1348,10 +1347,10 @@ export default function App() {
   // LIST VIEW
   // ══════════════════════════════════════════
   return (
-    <div style={{fontFamily:"inherit",background:"#FAF5EE",minHeight:"100vh",maxWidth:"430px",margin:"0 auto",paddingBottom:"110px"}}>
+    <div style={{fontFamily:"inherit",background:"#FAF5EE",minHeight:"100vh",maxWidth:isMobile?"430px":"100%",margin:"0 auto",paddingBottom:"110px"}}>
       <style>{FONT_CSS}</style>
       <div style={{background:"#0A0A0A",position:"sticky",top:0,zIndex:10,paddingTop:"env(safe-area-inset-top)"}}>
-        <div style={{padding:"12px 16px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{padding:"12px 16px 0",display:"flex",justifyContent:"space-between",alignItems:"center",maxWidth:isMobile?"100%":"1200px",margin:"0 auto"}}>
           <img src={LOGO} style={{height:"44px",mixBlendMode:"screen"}} alt="Don Comal"/>
           <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
             <button onClick={()=>{setCatFormVis(false);setCatSearch("");setView("catalogo");}} style={{background:"#1C1C1C",border:"none",borderRadius:"8px",color:"#A08060",padding:"8px 10px",cursor:"pointer",fontSize:"13px",fontWeight:"500",fontFamily:"inherit"}}>📦 Catálogo</button>
@@ -1361,7 +1360,7 @@ export default function App() {
             <div onClick={()=>setCurId(null)} style={{width:"32px",height:"32px",borderRadius:"8px",background:PCOLS[profile.ci%PCOLS.length],display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:"700",fontSize:"14px",cursor:"pointer",fontFamily:"inherit"}}>{profile.name[0]}</div>
           </div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1px",background:"#111",margin:"10px 0 0"}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1px",background:"#111",margin:"10px 0 0",maxWidth:isMobile?"100%":"1200px",marginLeft:"auto",marginRight:"auto"}}>
           <div style={{background:"#161616",padding:"10px 20px"}}><p style={{color:"#666",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px",fontFamily:"inherit"}}>{(dateFrom||dateTo)?"Compras del periodo":"Compras totales"}</p><p style={{color:"#F5DFC0",fontSize:"22px",fontWeight:"600",margin:0,fontFamily:"inherit"}}>{visible.length}</p></div>
           <div style={{background:"#161616",padding:"10px 20px"}}><p style={{color:"#666",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px",fontFamily:"inherit"}}>{(dateFrom||dateTo)?"Total del periodo":"Total acumulado"}</p><p style={{color:"#F5DFC0",fontSize:"22px",fontWeight:"600",margin:0,fontFamily:"inherit"}}>{(visible.length>0||visibleGastos.length>0)?fmtMXN(visible.reduce((s,i)=>s+i.importeTotal,0)+(isAdmin?visibleGastos.reduce((s,g)=>s+g.monto,0):0)):"—"}</p></div>
         </div>
