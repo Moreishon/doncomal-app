@@ -725,17 +725,25 @@ export default function App() {
           <span style={{position:"absolute",left:"12px",top:"50%",transform:"translateY(-50%)",fontSize:"16px",pointerEvents:"none"}}>🔍</span>
         </div>
 
-        {phSearch&&!phSelected&&(()=>{
-          const matches=phEntities.filter(e=>norm(e).includes(norm(phSearch)));
-          return matches.length>0?(
-            <div style={{background:"white",borderRadius:"12px",border:"1.5px solid #EAE0D5",marginBottom:"16px",overflow:"hidden"}}>
-              {matches.slice(0,8).map(e=>(
-                <div key={e} onClick={()=>{setPhSelected(e);setPhSearch(e);}} style={{padding:"11px 14px",cursor:"pointer",fontSize:"14px",color:"#1C1208",fontFamily:"inherit",borderBottom:"1px solid #F5F0EB"}}>
-                  {e}
-                </div>
-              ))}
-            </div>
-          ):(<p style={{color:"#A08060",fontSize:"13px",fontFamily:"inherit"}}>Sin resultados</p>);
+        {!phSelected&&(()=>{
+          const matches=phSearch
+            ? phEntities.filter(e=>norm(e).includes(norm(phSearch)))
+            : phEntities;
+          return matches.length===0
+            ? (<p style={{color:"#A08060",fontSize:"13px",fontFamily:"inherit",padding:"4px 0"}}>Sin resultados para "{phSearch}"</p>)
+            : (
+              <div style={{background:"white",borderRadius:"12px",border:"1.5px solid #EAE0D5",marginBottom:"16px",overflow:"hidden",maxHeight:"340px",overflowY:"auto"}}>
+                {!phSearch&&<div style={{padding:"8px 14px 4px",fontSize:"11px",color:"#A08060",fontWeight:"600",textTransform:"uppercase",letterSpacing:"0.06em",fontFamily:"inherit",borderBottom:"1px solid #F5F0EB"}}>{matches.length+" "+(phTab==="producto"?"productos":phTab==="categoria"?"categorías":"proveedores")}</div>}
+                {matches.map(e=>(
+                  <div key={e} onClick={()=>{setPhSelected(e);setPhSearch(e);}}
+                    style={{padding:"11px 14px",cursor:"pointer",fontSize:"14px",color:"#1C1208",fontFamily:"inherit",borderBottom:"1px solid #F5F0EB",transition:"background 0.1s"}}
+                    onMouseEnter={ev=>ev.currentTarget.style.background="#FAF5EE"}
+                    onMouseLeave={ev=>ev.currentTarget.style.background="white"}>
+                    {e}
+                  </div>
+                ))}
+              </div>
+            );
         })()}
 
         {phSelected&&phTab==="producto"&&(
