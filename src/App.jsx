@@ -62,34 +62,36 @@ function calcItem(f) {
 const blankF  = (als,cats) => ({fecha:today(),prov:"",al:als[0]||"Almacén 1",cat:cats[0]||"Frutas y Verduras",prod:"",useCustom:false,unit:"kg",qty:"",customUnit:"",equiv:"",stdUnit:"kg",price:"",iva:0.16,notas:""});
 const blankGF = (cats) => ({cat:cats[0]||"Frutas y Verduras",prod:"",useCustom:false,unit:"kg",qty:"",customUnit:"",equiv:"",stdUnit:"kg",price:"",iva:0.16,notas:""});
 
-// ─── Supabase sync ───────────────────────────────────────────
-const SUPA_URL = "https://ldreshghjcaurfgnwjxa.supabase.co";
-const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkcmVzaGdoamNhdXJmZ253anhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1OTY4NTIsImV4cCI6MjA5NjE3Mjg1Mn0.fKeRYxkZhiFeoFxw_sLy1H_S8hx5ffmGvApzkZ3Ssbo";
+// ─── Supabase sync ────────────────────────────────────────────
+// Pega aquí tus credenciales de supabase.com → Settings → API
+const SUPA_URL = "https://TU-PROYECTO.supabase.co";  // ← reemplaza
+const SUPA_KEY = "tu-anon-key-aqui";                  // ← reemplaza
+// ──────────────────────────────────────────────────────────────
+
 const SUPA_HDR = {
   "apikey": SUPA_KEY,
   "Authorization": "Bearer "+SUPA_KEY,
   "Content-Type": "application/json",
   "Prefer": "resolution=merge-duplicates"
 };
+
 async function storageGet(key) {
   try {
-    const r = await fetch(SUPA_URL+"/rest/v1/app_data?key=eq."+key+"&select=value", {headers:SUPA_HDR});
+    const r = await fetch(
+      SUPA_URL+"/rest/v1/app_data?key=eq."+key+"&select=value",
+      { headers: SUPA_HDR }
+    );
     const d = await r.json();
-    if(Array.isArray(d) && d.length > 0) {
-      try { localStorage.setItem("dc_bk_"+key, d[0].value); } catch {}
-      return JSON.parse(d[0].value);
-    }
-  } catch {}
-  try { const bk=localStorage.getItem("dc_bk_"+key); if(bk) return JSON.parse(bk); } catch {}
-  return null;
+    return d.length > 0 ? JSON.parse(d[0].value) : null;
+  } catch { return null; }
 }
+
 async function storageSet(key, val) {
-  const json = JSON.stringify(val);
-  try { localStorage.setItem("dc_bk_"+key, json); } catch {}
   try {
     await fetch(SUPA_URL+"/rest/v1/app_data", {
-      method:"POST", headers:SUPA_HDR,
-      body:JSON.stringify({key, value:json, updated_at:new Date().toISOString()})
+      method: "POST",
+      headers: SUPA_HDR,
+      body: JSON.stringify({ key, value: JSON.stringify(val), updated_at: new Date().toISOString() })
     });
   } catch {}
 }
@@ -320,7 +322,46 @@ function ListMgr({list, newVal, onNewVal, onAdd, onRemove}) {
   );
 }
 
+// ── Price history chart ─────────────────────────────────────
+function PriceChart({data,color="#C4622D"}) {
+  if(!data||data.length<2) return(
+    <div style={{textAlign:"center",padding:"24px",color:"#A08060",fontSize:"13px",fontFamily:"inherit"}}>
+      Mínimo 2 registros para mostrar la gráfica
+    </div>
+  );
+  const W=360,H=150,pL=54,pR=12,pT=12,pB=32,cW=W-pL-pR,cH=H-pT-pB;
+  const prices=data.map(d=>d.price);
+  const mn=Math.min(...prices),mx=Math.max(...prices),rng=mx-mn||mn*0.1||1;
+  const cx=i=>pL+(i/(data.length-1))*cW;
+  const cy=p=>pT+cH-((p-mn)/rng)*cH;
+  const pts=data.map((d,i)=>cx(i).toFixed(1)+","+cy(d.price).toFixed(1)).join(" ");
+  const yVals=[mn,(mn+mx)/2,mx];
+  const fmtP=v=>"$"+v.toFixed(v>=100?0:2);
+  // pick x-axis ticks (max 5)
+  const step=Math.max(1,Math.floor((data.length-1)/4));
+  const xTicks=[...Array(data.length).keys()].filter(i=>i%step===0||(i===data.length-1));
+  return(
+    <svg viewBox={"0 0 "+W+" "+H} style={{width:"100%",height:"auto",display:"block"}}>
+      {yVals.map((v,i)=>(
+        <g key={i}>
+          <line x1={pL} x2={W-pR} y1={cy(v).toFixed(1)} y2={cy(v).toFixed(1)} stroke="#EAE0D5" strokeWidth="1"/>
+          <text x={pL-4} y={(cy(v)+4).toFixed(1)} textAnchor="end" fontSize="9" fill="#A08060" fontFamily="inherit">{fmtP(v)}</text>
+        </g>
+      ))}
+      <polyline points={pL+","+(pT+cH)+" "+pts+" "+(W-pR)+","+(pT+cH)} fill={color} fillOpacity="0.08" stroke="none"/>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round"/>
+      {data.map((d,i)=>(<circle key={i} cx={cx(i).toFixed(1)} cy={cy(d.price).toFixed(1)} r="3.5" fill={color} stroke="white" strokeWidth="1.5"/>))}
+      {xTicks.map(i=>(
+        <text key={i} x={cx(i).toFixed(1)} y={H-4} textAnchor="middle" fontSize="9" fill="#A08060" fontFamily="inherit">
+          {data[i].fecha.slice(5).replace("-","/")}
+        </text>
+      ))}
+    </svg>
+  );
+}
+
 export default function App() {
+  const [isMobile,setIsMobile]   = useState(()=>typeof window!=="undefined"&&window.innerWidth<=800);
   const [profiles,setProfiles]   = useState(PR_DEF);
   const [curId,setCurId]         = useState(null);
   const [pinTarget,setPinTarget] = useState(null);
@@ -340,6 +381,10 @@ export default function App() {
   const [grpEditIdx,setGrpEditIdx] = useState(null);
   const [proveedores,setProveedores]= useState([]);
   const [provSuggOpen,setProvSuggOpen]= useState(false);
+  const [phExpanded,setPhExpanded]= useState({});
+  const [phTab,setPhTab]           = useState("producto");
+  const [phSelected,setPhSelected] = useState(null);
+  const [phSearch,setPhSearch]     = useState("");
   const [grpPhase,setGrpPhase]   = useState(1);
   const [grpF,setGrpF]           = useState(null);
   const [grpErrs,setGrpErrs]     = useState({});
@@ -376,6 +421,7 @@ export default function App() {
 
   // ── Load from storage ──
   const _ready = useRef(false);
+  useEffect(()=>{ const h=()=>setIsMobile(window.innerWidth<=800); window.addEventListener("resize",h); return ()=>window.removeEventListener("resize",h); },[]);
   useEffect(()=>{
     (async()=>{
       const si=await storageGet("dc_items");     if(si) setItems(si);
@@ -423,6 +469,41 @@ export default function App() {
     }
     return result;
   },[visibleGastos]);
+
+  const phEntities  = useMemo(()=>{
+    const src = phTab==="producto" ? items.map(i=>i.prod)
+              : phTab==="categoria" ? items.map(i=>i.cat)
+              : items.map(i=>i.prov);
+    return [...new Set(src.filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  },[items,phTab]);
+
+  const phFiltered  = useMemo(()=>{
+    if(!phSelected) return [];
+    const match = phTab==="producto" ? (i=>i.prod===phSelected)
+                : phTab==="categoria" ? (i=>i.cat===phSelected)
+                : (i=>i.prov===phSelected);
+    return items.filter(match).filter(i=>i.priceStd>0).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  },[items,phSelected,phTab]);
+
+  const phProductPoints = useMemo(()=>{
+    if(phTab!=="producto") return [];
+    return phFiltered.map(i=>({fecha:i.fecha,price:i.priceStd,prov:i.prov,unit:i.unitStd}));
+  },[phFiltered,phTab]);
+
+  const phGroupSummary = useMemo(()=>{
+    if(phTab==="producto") return [];
+    const byProd={};
+    for(const it of phFiltered){
+      if(!byProd[it.prod]) byProd[it.prod]={prod:it.prod,unit:it.unitStd,pts:[]};
+      byProd[it.prod].pts.push({fecha:it.fecha,price:it.priceStd,prov:it.prov});
+    }
+    return Object.values(byProd).map(p=>{
+      const s=p.pts.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+      const pct=((s[s.length-1].price-s[0].price)/s[0].price)*100;
+      return {...p,s,first:s[0],last:s[s.length-1],pct};
+    }).sort((a,b)=>Math.abs(b.pct)-Math.abs(a.pct));
+  },[phFiltered,phTab]);
+
 
   const resumen = useMemo(()=>{
     const m={};
@@ -623,6 +704,143 @@ export default function App() {
   },[catalogo,catSearch]);
 
   const catByAl = useMemo(()=>{ const g={}; for(const i of catFiltered){if(!g[i.almacen])g[i.almacen]=[];g[i.almacen].push(i);} return g; },[catFiltered]);
+
+  // ══════════════════════════════════════════
+  // PRECIO HISTORY VIEW
+  // ══════════════════════════════════════════
+  if(view==="precios") return (
+    <div style={{fontFamily:"inherit",background:"#FAF5EE",minHeight:"100vh"}}>
+      <style>{FONT_CSS}</style>
+      <div style={{paddingTop:"calc(16px + env(safe-area-inset-top))",paddingRight:"20px",paddingBottom:"16px",paddingLeft:"20px",background:"#0A0A0A",display:"flex",alignItems:"center",gap:"12px",position:"sticky",top:0,zIndex:10}}>
+        <button onClick={()=>setView("list")} style={BACK_BTN}>←</button>
+        <span style={HDR_TITLE}>Análisis de Precios</span>
+      </div>
+      <div style={{maxWidth:isMobile?"100%":"900px",margin:"0 auto",padding:"16px 16px 100px"}}>
+        <div style={{display:"flex",gap:"8px",marginBottom:"16px",flexWrap:"wrap"}}>
+          {[["producto","Por Producto"],["categoria","Por Categoría"],["proveedor","Por Proveedor"]].map(([t,label])=>(
+            <button key={t} onClick={()=>{setPhTab(t);setPhSelected(null);setPhSearch("");}} style={sPill(phTab===t,"#C4622D",{fontSize:"13px"})}>{label}</button>
+          ))}
+        </div>
+
+        <div style={{position:"relative",marginBottom:"16px"}}>
+          <input type="text" value={phSearch} onChange={e=>{setPhSearch(e.target.value);setPhSelected(null);}} placeholder={"Buscar "+(phTab==="producto"?"producto":phTab==="categoria"?"categoría":"proveedor")+"..."} style={{...sInp(false),paddingLeft:"36px"}}/>
+          <span style={{position:"absolute",left:"12px",top:"50%",transform:"translateY(-50%)",fontSize:"16px",pointerEvents:"none"}}>🔍</span>
+        </div>
+
+        {phSearch&&!phSelected&&(()=>{
+          const matches=phEntities.filter(e=>norm(e).includes(norm(phSearch)));
+          return matches.length>0?(
+            <div style={{background:"white",borderRadius:"12px",border:"1.5px solid #EAE0D5",marginBottom:"16px",overflow:"hidden"}}>
+              {matches.slice(0,8).map(e=>(
+                <div key={e} onClick={()=>{setPhSelected(e);setPhSearch(e);}} style={{padding:"11px 14px",cursor:"pointer",fontSize:"14px",color:"#1C1208",fontFamily:"inherit",borderBottom:"1px solid #F5F0EB"}}>
+                  {e}
+                </div>
+              ))}
+            </div>
+          ):(<p style={{color:"#A08060",fontSize:"13px",fontFamily:"inherit"}}>Sin resultados</p>);
+        })()}
+
+        {phSelected&&phTab==="producto"&&(
+          <div>
+            {phProductPoints.length===0?(
+              <div style={{textAlign:"center",padding:"40px",color:"#A08060"}}>
+                <p style={{fontSize:"13px",fontFamily:"inherit"}}>Sin registros de precio para este producto</p>
+              </div>
+            ):(()=>{
+              const first=phProductPoints[0], last=phProductPoints[phProductPoints.length-1];
+              const pct=((last.price-first.price)/first.price)*100;
+              const clrPct=pct>0?"#E53E3E":pct<0?"#2D6633":"#A08060";
+              return(
+                <div>
+                  <div style={{background:"#1A0A00",borderRadius:"12px",padding:"14px 16px",marginBottom:"16px"}}>
+                    <p style={{color:"#A08060",fontSize:"11px",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 8px",fontFamily:"inherit"}}>{phSelected+" · "+phProductPoints.length+" registros"}</p>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+                      <div>
+                        <p style={{color:"#666",fontSize:"11px",margin:"0 0 2px",fontFamily:"inherit"}}>Primera compra</p>
+                        <p style={{color:"#F5DFC0",fontSize:"16px",fontWeight:"700",margin:0,fontFamily:"inherit"}}>${first.price.toFixed(2)}<span style={{fontSize:"11px",color:"#A08060",fontWeight:"400"}}> /{first.unit}</span></p>
+                        <p style={{color:"#666",fontSize:"11px",margin:"2px 0 0",fontFamily:"inherit"}}>{fmtD(first.fecha)}</p>
+                      </div>
+                      <div style={{textAlign:"center"}}>
+                        <p style={{color:clrPct,fontSize:"22px",fontWeight:"700",margin:0,fontFamily:"inherit"}}>{(pct>=0?"+":"")+pct.toFixed(1)+"%"}</p>
+                        <p style={{color:"#666",fontSize:"10px",margin:"2px 0 0",fontFamily:"inherit"}}>cambio total</p>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <p style={{color:"#666",fontSize:"11px",margin:"0 0 2px",fontFamily:"inherit"}}>Última compra</p>
+                        <p style={{color:"#F5DFC0",fontSize:"16px",fontWeight:"700",margin:0,fontFamily:"inherit"}}>${last.price.toFixed(2)}<span style={{fontSize:"11px",color:"#A08060",fontWeight:"400"}}> /{last.unit}</span></p>
+                        <p style={{color:"#666",fontSize:"11px",margin:"2px 0 0",fontFamily:"inherit"}}>{fmtD(last.fecha)}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{background:"white",borderRadius:"12px",border:"1.5px solid #EAE0D5",padding:"12px",marginBottom:"16px"}}>
+                    <PriceChart data={phProductPoints}/>
+                  </div>
+                  <div style={{background:"white",borderRadius:"12px",border:"1.5px solid #EAE0D5",overflow:"hidden",marginBottom:"16px"}}>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",background:"#F8F3EE",padding:"8px 12px"}}>
+                      {["Fecha","Proveedor","$/"+first.unit,"Cambio"].map(h=>(
+                        <span key={h} style={{fontSize:"11px",color:"#8A7B6A",fontWeight:"600",fontFamily:"inherit"}}>{h}</span>
+                      ))}
+                    </div>
+                    {phProductPoints.map((pt,i)=>{
+                      const prev=phProductPoints[i-1];
+                      const delta=prev?((pt.price-prev.price)/prev.price)*100:null;
+                      const clr=delta===null?"#A08060":delta>0?"#E53E3E":delta<0?"#2D6633":"#A08060";
+                      return(
+                        <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"9px 12px",borderBottom:"1px solid #F5F0EB",background:i%2===0?"white":"#FDFAF7"}}>
+                          <span style={{fontSize:"12px",color:"#5A4A3A",fontFamily:"inherit"}}>{fmtD(pt.fecha)}</span>
+                          <span style={{fontSize:"12px",color:"#5A4A3A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontFamily:"inherit"}}>{pt.prov||"—"}</span>
+                          <span style={{fontSize:"12px",color:"#1C1208",fontWeight:"600",fontFamily:"inherit"}}>${pt.price.toFixed(2)}</span>
+                          <span style={{fontSize:"12px",color:clr,fontWeight:"600",fontFamily:"inherit"}}>{delta===null?"—":(delta>=0?"+":"")+delta.toFixed(1)+"%"}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {phSelected&&phTab!=="producto"&&(
+          <div>
+            {phGroupSummary.length===0?(
+              <div style={{textAlign:"center",padding:"40px",color:"#A08060"}}>
+                <p style={{fontSize:"13px",fontFamily:"inherit"}}>Sin registros de precio para esta {phTab==="categoria"?"categoría":"proveedor"}</p>
+              </div>
+            ):(
+              <div>
+                <p style={{fontSize:"13px",color:"#8A7B6A",margin:"0 0 12px",fontFamily:"inherit"}}>{phGroupSummary.length+" producto"+(phGroupSummary.length!==1?"s":"")+" con historial de precios"}</p>
+                {phGroupSummary.map(item=>{
+                  const clr=item.pct>0?"#E53E3E":item.pct<0?"#2D6633":"#A08060";
+                  const exp=!!phExpanded[item.prod];
+                  return(
+                    <div key={item.prod} style={{background:"white",borderRadius:"12px",border:"1.5px solid #EAE0D5",marginBottom:"8px",overflow:"hidden"}}>
+                      <div onClick={()=>setPhExpanded(p=>({...p,[item.prod]:!p[item.prod]}))} style={{padding:"12px 14px",cursor:"pointer"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                          <div style={{flex:1,minWidth:0}}>
+                            <p style={{fontSize:"14px",fontWeight:"600",color:"#1C1208",margin:"0 0 3px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontFamily:"inherit"}}>{item.prod}</p>
+                            <p style={{fontSize:"12px",color:"#8A7B6A",margin:0,fontFamily:"inherit"}}>{item.s.length+" compras · $"+item.first.price.toFixed(2)+" → $"+item.last.price.toFixed(2)+" /"+item.unit}</p>
+                          </div>
+                          <div style={{textAlign:"right",flexShrink:0,marginLeft:"12px"}}>
+                            <p style={{fontSize:"18px",fontWeight:"700",color:clr,margin:"0 0 2px",fontFamily:"inherit"}}>{(item.pct>=0?"+":"")+item.pct.toFixed(1)+"%"}</p>
+                            <p style={{fontSize:"11px",color:"#A08060",margin:0,fontFamily:"inherit"}}>{exp?"▲ ocultar":"▼ ver gráfica"}</p>
+                          </div>
+                        </div>
+                      </div>
+                      {exp&&(
+                        <div style={{borderTop:"1px solid #F0EBE3",padding:"8px 12px"}}>
+                          <PriceChart data={item.s}/>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   // ══════════════════════════════════════════
   // LOADING SCREEN
@@ -915,7 +1133,7 @@ export default function App() {
   // FORM SINGLE
   // ══════════════════════════════════════════
   if(view==="form_single") return (
-    <div style={{fontFamily:"inherit",background:"#FAF5EE",minHeight:"100vh",maxWidth:"430px",margin:"0 auto",paddingBottom:"100px"}}>
+    <div style={{fontFamily:"inherit",background:"#FAF5EE",minHeight:"100vh",maxWidth:isMobile?"430px":"100%",margin:"0 auto",paddingBottom:"100px"}}>
       <style>{FONT_CSS}</style>
       <div style={HDR_STYLE}><button onClick={()=>setView("list")} style={BACK_BTN}>←</button><span style={HDR_TITLE}>{editId?"Editar compra":"Nueva compra"}</span></div>
       <div style={{padding:"16px"}}>
@@ -952,7 +1170,7 @@ export default function App() {
   // FORM GROUP
   // ══════════════════════════════════════════
   if(view==="form_group") return (
-    <div style={{fontFamily:"inherit",background:"#FAF5EE",minHeight:"100vh",maxWidth:"430px",margin:"0 auto",paddingBottom:"100px"}}>
+    <div style={{fontFamily:"inherit",background:"#FAF5EE",minHeight:"100vh",maxWidth:isMobile?"430px":"100%",margin:"0 auto",paddingBottom:"100px"}}>
       <style>{FONT_CSS}</style>
       <div style={HDR_STYLE}><button onClick={()=>grpPhase===2?setGrpPhase(1):setView("list")} style={BACK_BTN}>←</button><span style={HDR_TITLE}>{"Compra grupal · Paso "+grpPhase+"/2"}</span></div>
       {grpPhase===1?(
@@ -1021,7 +1239,7 @@ export default function App() {
   // GASTO FORM
   // ══════════════════════════════════════════
   if(view==="gasto_form") return (
-    <div style={{fontFamily:"inherit",background:"#FAF5EE",minHeight:"100vh",maxWidth:"430px",margin:"0 auto",paddingBottom:"100px"}}>
+    <div style={{fontFamily:"inherit",background:"#FAF5EE",minHeight:"100vh",maxWidth:isMobile?"430px":"100%",margin:"0 auto",paddingBottom:"100px"}}>
       <style>{FONT_CSS}</style>
       <div style={{paddingTop:"calc(16px + env(safe-area-inset-top))",paddingRight:"20px",paddingBottom:"16px",paddingLeft:"20px",background:"#0A0A0A",display:"flex",alignItems:"center",gap:"12px",position:"sticky",top:0,zIndex:10}}>
         <button onClick={()=>setView("list")} style={BACK_BTN}>←</button>
@@ -1140,6 +1358,7 @@ export default function App() {
             <button onClick={()=>{setCatFormVis(false);setCatSearch("");setView("catalogo");}} style={{background:"#1C1C1C",border:"none",borderRadius:"8px",color:"#A08060",padding:"8px 10px",cursor:"pointer",fontSize:"13px",fontWeight:"500",fontFamily:"inherit"}}>📦 Catálogo</button>
             {isAdmin&&<button onClick={()=>setView("settings")} style={{background:"#1C1C1C",border:"none",borderRadius:"8px",color:"#A08060",padding:"8px 10px",cursor:"pointer",fontSize:"16px",fontFamily:"inherit"}}>⚙</button>}
             <button onClick={exportXLSX} disabled={!visible.length} style={{background:visible.length?"#2D6633":"#1C1C1C",border:"none",borderRadius:"8px",color:visible.length?"white":"#555",padding:"8px 14px",fontSize:"13px",fontWeight:"600",cursor:visible.length?"pointer":"default",fontFamily:"inherit"}}>{"↓ Excel"+(visible.length>0?" ("+visible.length+")":"")}</button>
+            <button onClick={()=>{setPhSelected(null);setPhSearch("");setView("precios");}} style={{background:"#1C1C1C",border:"none",borderRadius:"8px",color:"#A08060",padding:"8px 12px",fontSize:"15px",cursor:"pointer",fontFamily:"inherit"}} title="Análisis de precios">📈</button>
             <div onClick={()=>setCurId(null)} style={{width:"32px",height:"32px",borderRadius:"8px",background:PCOLS[profile.ci%PCOLS.length],display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:"700",fontSize:"14px",cursor:"pointer",fontFamily:"inherit"}}>{profile.name[0]}</div>
           </div>
         </div>
@@ -1149,7 +1368,7 @@ export default function App() {
         </div>
       </div>
 
-      <div style={{padding:"10px 16px 8px"}}>
+      <div style={{padding:"10px 16px 8px",maxWidth:isMobile?"100%":"1200px",margin:"0 auto"}}>
         <div style={{display:"flex",gap:"8px",marginBottom:"10px"}}>
           <button onClick={()=>{if(!isAdmin&&viewMode==="gastos")setViewMode("resumen");setViewMode("resumen")}} style={sPill(viewMode==="resumen","#C4622D",{fontSize:"13px"})}>Resumen</button>
           <button onClick={()=>setViewMode("compras")} style={sPill(viewMode==="compras","#C4622D",{fontSize:"13px"})}>Compras</button>
@@ -1183,7 +1402,7 @@ export default function App() {
         <span style={{fontSize:"11px",color:"#A08060",fontFamily:"inherit"}}>{saveStatus==="saved"?"Guardado automáticamente":"Guardando..."}</span>
       </div>
 
-      <div style={{padding:"0 16px"}}>
+      <div style={{padding:"0 16px",maxWidth:isMobile?"100%":"1200px",margin:"0 auto"}}>
         {viewMode==="resumen"&&(
           (resumen.length===0&&(!isAdmin||visibleGastos.length===0))?(
             <div style={{textAlign:"center",padding:"50px 20px",color:"#A08060"}}>
@@ -1415,7 +1634,7 @@ export default function App() {
         )}
       </div>
 
-      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"430px",paddingTop:"10px",paddingRight:"16px",paddingBottom:"calc(20px + env(safe-area-inset-bottom))",paddingLeft:"16px",background:"linear-gradient(to top,#FAF5EE 65%,rgba(250,245,238,0))"}}>
+      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:isMobile?"430px":"900px",paddingTop:"10px",paddingRight:"16px",paddingBottom:"calc(20px + env(safe-area-inset-bottom))",paddingLeft:"16px",background:"linear-gradient(to top,#FAF5EE 65%,rgba(250,245,238,0))"}}>
         {viewMode==="gastos"&&isAdmin?(
           <button onClick={()=>openGasto()} style={{width:"100%",background:"#8B5E3C",color:"white",border:"none",borderRadius:"12px",padding:"14px",fontSize:"14px",fontWeight:"600",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px",fontFamily:"inherit"}}>
             <span style={{fontSize:"18px",fontWeight:"300"}}>+</span> Agregar gasto
